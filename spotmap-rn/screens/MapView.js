@@ -6,9 +6,9 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
 import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, THEMES } from '../constants';
+import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
 
 const PREVIEW_H = 200;
 
@@ -16,16 +16,37 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
   const [pins, setPins] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPin, setSelectedPin] = useState(null);
+  const [region, setRegion] = useState({
+    ...STANFORD,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  });
   const mapRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(PREVIEW_H)).current;
   const t = THEMES[theme];
 
   useEffect(() => {
+    if (USE_MOCK_DATA) {
+      setPins(MOCK_PINS);
+      return;
+    }
     const q = query(collection(db, 'pins'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setPins(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Map snapshot error:', err));
   }, []);
+
+  const zoomIn = () => {
+    const next = { ...region, latitudeDelta: region.latitudeDelta / 2, longitudeDelta: region.longitudeDelta / 2 };
+    mapRef.current?.animateToRegion(next, 250);
+    setRegion(next);
+  };
+
+  const zoomOut = () => {
+    const next = { ...region, latitudeDelta: region.latitudeDelta * 2, longitudeDelta: region.longitudeDelta * 2 };
+    mapRef.current?.animateToRegion(next, 250);
+    setRegion(next);
+  };
 
   useEffect(() => {
     Animated.spring(slideAnim, {
@@ -56,10 +77,11 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={{ ...STANFORD, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
+        initialRegion={region}
         userInterfaceStyle={theme}
         customMapStyle={theme === 'dark' ? MAP_STYLES_DARK : []}
         onPress={() => setSelectedPin(null)}
+        onRegionChangeComplete={setRegion}
         showsUserLocation
         showsCompass={false}
         toolbarEnabled={false}
@@ -100,7 +122,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
-              onPress={() => signOut(auth)}
+              onPress={() => navigation.navigate('Profile', { user })}
             >
               {user.photoURL
                 ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
@@ -141,6 +163,25 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      {/* Zoom controls */}
+      <View style={styles.zoomControls}>
+        <TouchableOpacity
+          style={[styles.zoomBtn, { backgroundColor: t.surface, borderColor: t.border }]}
+          onPress={zoomIn}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="add" size={20} color={t.text} />
+        </TouchableOpacity>
+        <View style={[styles.zoomDivider, { backgroundColor: t.border }]} />
+        <TouchableOpacity
+          style={[styles.zoomBtn, { backgroundColor: t.surface, borderColor: t.border }]}
+          onPress={zoomOut}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="remove" size={20} color={t.text} />
+        </TouchableOpacity>
       </View>
 
       {/* Pin preview sheet */}
@@ -209,6 +250,14 @@ const styles = StyleSheet.create({
   avatarBtn: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: 38, height: 38 },
   avatarFallback: { fontSize: 16 },
+
+  zoomControls: {
+    position: 'absolute', right: 16, bottom: 120,
+    borderRadius: 14, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 4,
+  },
+  zoomBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  zoomDivider: { height: 1 },
 
   catScroll: { gap: 8, paddingBottom: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },

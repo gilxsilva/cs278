@@ -13,6 +13,7 @@ import FeedScreen from './screens/FeedView';
 import MapScreen from './screens/MapView';
 import AddPinScreen from './screens/AddPin';
 import PinDetailScreen from './screens/PinDetail';
+import ProfileScreen from './screens/Profile';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -91,6 +92,9 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="PinDetail" options={{ animation: 'slide_from_bottom' }}>
                 {props => <PinDetailScreen {...props} user={user} />}
+              </Stack.Screen>
+              <Stack.Screen name="Profile" options={{ animation: 'slide_from_right' }}>
+                {props => <ProfileScreen {...props} theme={theme} />}
               </Stack.Screen>
             </>
           )}
