@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, Image,
-  StyleSheet, Animated, Dimensions,
+  StyleSheet, Animated,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, THEMES } from '../constants';
 
-const SCREEN_H = Dimensions.get('window').height;
 const PREVIEW_H = 200;
 
 export default function MapScreen({ navigation, user, theme, toggleTheme }) {
@@ -24,7 +24,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
     const q = query(collection(db, 'pins'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setPins(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    }, err => console.error('Map snapshot error:', err));
   }, []);
 
   useEffect(() => {
@@ -93,6 +93,12 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
               <Text style={styles.iconBtnText}>{theme === 'dark' ? '☀️' : '🌙'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: t.accent, borderColor: t.accent }]}
+              onPress={() => navigation.navigate('AddPin')}
+            >
+              <Ionicons name="add" size={20} color="#0f0f0f" />
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
               onPress={() => signOut(auth)}
             >
@@ -136,15 +142,6 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
           ))}
         </ScrollView>
       </View>
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: t.accent }]}
-        onPress={() => navigation.navigate('AddPin')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>＋</Text>
-      </TouchableOpacity>
 
       {/* Pin preview sheet */}
       <Animated.View
@@ -218,9 +215,6 @@ const styles = StyleSheet.create({
   chipActive: {},
   chipText: { fontSize: 13, fontWeight: '500' },
   dot: { width: 7, height: 7, borderRadius: 4 },
-
-  fab: { position: 'absolute', bottom: 110, right: 20, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  fabIcon: { fontSize: 28, color: '#0f0f0f', lineHeight: 32 },
 
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 44 },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
