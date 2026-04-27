@@ -1,24 +1,52 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GoogleMap, useJsApiLoader, OverlayView } from '@react-google-maps/api';
+import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { db, auth } from '../firebase';
-import { CATEGORIES, getCat, GOOGLE_MAPS_API_KEY, MAP_STYLES } from '../constants';
+import { CATEGORIES, getCat } from '../constants';
 
-const CENTER = { lat: 37.4275, lng: -122.1697 }; // Stanford
+const CENTER = [37.4275, -122.1697]; // Stanford
 
-export default function MapView({ user }) {
+function MapLayer({ pins, setSelectedPin }) {
+  const map = useMapEvents({
+    click: () => setSelectedPin(null),
+  });
+
+  useEffect(() => {
+    const markers = pins.map(pin => {
+      const c = getCat(pin.category);
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="map-marker" style="background-color:${c.color}"><span>${c.icon}</span></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+      return L.marker([pin.lat, pin.lng], { icon })
+        .addTo(map)
+        .on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          map.panTo([pin.lat, pin.lng]);
+          setSelectedPin(pin);
+        });
+    });
+    return () => markers.forEach(m => m.remove());
+  }, [map, pins, setSelectedPin]);
+
+  return null;
+}
+
+const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+export default function MapView({ user, theme, toggleTheme }) {
   const [pins, setPins] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPin, setSelectedPin] = useState(null);
-  const [mapRef, setMapRef] = useState(null);
   const previewRef = useRef(null);
   const navigate = useNavigate();
-
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-  });
 
   useEffect(() => {
     const q = query(collection(db, 'pins'), orderBy('createdAt', 'desc'));
@@ -31,60 +59,44 @@ export default function MapView({ user }) {
     ? pins
     : pins.filter(p => p.category === activeCategory);
 
-  const handleMarkerClick = useCallback((pin) => {
-    setSelectedPin(pin);
-    if (mapRef) {
-      mapRef.panTo({ lat: pin.lat, lng: pin.lng });
-    }
-  }, [mapRef]);
-
-  const handleMapClick = () => setSelectedPin(null);
-
   const cat = selectedPin ? getCat(selectedPin.category) : null;
 
   return (
     <div className="map-page">
-      {isLoaded ? (
-        <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={CENTER}
-          zoom={15}
-          options={{
-            styles: MAP_STYLES,
-            disableDefaultUI: true,
-            clickableIcons: false,
-          }}
-          onLoad={map => setMapRef(map)}
-          onClick={handleMapClick}
-        >
-          {filtered.map(pin => {
-            const c = getCat(pin.category);
-            return (
-              <OverlayView
-                key={pin.id}
-                position={{ lat: pin.lat, lng: pin.lng }}
-                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-              >
-                <div
-                  className="map-marker"
-                  style={{ backgroundColor: c.color }}
-                  onClick={(e) => { e.stopPropagation(); handleMarkerClick(pin); }}
-                >
-                  <span>{c.icon}</span>
-                </div>
-              </OverlayView>
-            );
-          })}
-        </GoogleMap>
-      ) : (
-        <div style={{ flex: 1, background: '#1a1a1a' }} />
-      )}
+      <MapContainer
+        center={CENTER}
+        zoom={15}
+        style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+        zoomControl={false}
+        attributionControl={false}
+      >
+        <TileLayer url={theme === 'dark' ? TILE_DARK : TILE_LIGHT} />
+        <MapLayer pins={filtered} setSelectedPin={setSelectedPin} />
+      </MapContainer>
 
       <div className="top-bar">
         <div className="top-row">
           <span className="wordmark">spot</span>
+          <button className="theme-toggle-btn" onClick={toggleTheme} title="Toggle theme">
+            {theme === 'dark' ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
+          </button>
           <button className="avatar-btn" onClick={() => signOut(auth)}>
-            <img src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
+            {user.photoURL
+              ? <img src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
+              : <span style={{ fontSize: 16 }}>👤</span>
+            }
           </button>
         </div>
         <div className="cat-scroll">

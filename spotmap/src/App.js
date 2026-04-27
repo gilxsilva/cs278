@@ -10,6 +10,12 @@ import './App.css';
 
 export default function App() {
   const [user, setUser] = useState(undefined);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => setUser(u || null));
@@ -22,11 +28,14 @@ export default function App() {
     </div>
   );
 
+  const handleGuestLogin = () => setUser({ uid: 'guest', displayName: 'Demo User', photoURL: null });
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-        <Route path="/" element={user ? <MapView user={user} /> : <Navigate to="/login" />} />
+        <Route path="/login" element={!user ? <Login onGuestLogin={handleGuestLogin} /> : <Navigate to="/" />} />
+        <Route path="/" element={user ? <MapView user={user} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/login" />} />
         <Route path="/add" element={user ? <AddPin user={user} /> : <Navigate to="/login" />} />
         <Route path="/pin/:id" element={user ? <PinDetail user={user} /> : <Navigate to="/login" />} />
       </Routes>
