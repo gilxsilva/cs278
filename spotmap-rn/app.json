@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "spot",
+    "slug": "spotmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f3ee"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cs278.spotmap"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f5f3ee"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.cs278.spotmap"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "eec5fe7a-5e64-4070-b195-d3700d7d7d5d"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/eec5fe7a-5e64-4070-b195-d3700d7d7d5d"
+    }
+  }
+}

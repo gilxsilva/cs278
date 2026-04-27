@@ -1,4 +1,6 @@
-# spot
+# spot — web prototype
+
+> **Note:** This is the early web prototype. The class submission is the React Native app in `../spotmap-rn/`.
 
 A mobile-first social map app for sharing your favorite places with friends. Drop pins on a map, browse by category, and see what spots your friends recommend.
 
