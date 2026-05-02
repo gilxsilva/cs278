@@ -18,7 +18,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cs278.spotmap"
+      "bundleIdentifier": "com.cs278.spotmap",
+      "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +29,12 @@
         "backgroundColor": "#f5f3ee"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.cs278.spotmap"
+      "package": "com.cs278.spotmap",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "extra": {
       "eas": {

@@ -3,11 +3,11 @@ import {
   View, Text, TouchableOpacity, ScrollView, Image,
   StyleSheet, Animated,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, THEMES } from '../constants';
+import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, MAP_STYLES_LIGHT, THEMES } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
 
 const PREVIEW_H = 200;
@@ -76,10 +76,11 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
+        provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
         initialRegion={region}
         userInterfaceStyle={theme}
-        customMapStyle={theme === 'dark' ? MAP_STYLES_DARK : []}
+        customMapStyle={theme === 'dark' ? MAP_STYLES_DARK : MAP_STYLES_LIGHT}
         onPress={() => setSelectedPin(null)}
         onRegionChangeComplete={setRegion}
         showsUserLocation
@@ -88,16 +89,33 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
       >
         {filtered.map(pin => {
           const c = getCat(pin.category);
+          const isSelected = selectedPin?.id === pin.id;
           return (
             <Marker
               key={pin.id}
               coordinate={{ latitude: pin.lat, longitude: pin.lng }}
               onPress={() => handleMarkerPress(pin)}
-              tracksViewChanges={false}
+              tracksViewChanges={isSelected}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={[styles.marker, { backgroundColor: c.color }]}>
-                <Text style={styles.markerIcon}>{c.icon}</Text>
-              </View>
+              <View style={[
+            styles.pinOuter,
+            { backgroundColor: c.base + '20' },
+          ]}>
+            <View style={[
+              styles.pinInner,
+              {
+                backgroundColor: isSelected ? c.base : '#fff',
+                borderColor: c.base + '80',
+              }
+            ]}>
+              <Ionicons
+                name={c.icon}
+                size={14}
+                color={isSelected ? '#fff' : c.base}
+              />
+            </View>
+          </View>
             </Marker>
           );
         })}
@@ -106,14 +124,8 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
       {/* Top bar */}
       <View style={styles.topBar}>
         <View style={styles.topRow}>
-          <Text style={[styles.wordmark, { color: t.accent }]}>spot</Text>
+          <Text style={[styles.wordmark, { color: '#405973' }]}>spot</Text>
           <View style={styles.topRight}>
-            <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: t.surface, borderColor: t.border }]}
-              onPress={toggleTheme}
-            >
-              <Text style={styles.iconBtnText}>{theme === 'dark' ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconBtn, { backgroundColor: t.accent, borderColor: t.accent }]}
               onPress={() => navigation.navigate('AddPin')}
@@ -238,8 +250,33 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  marker: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
-  markerIcon: { fontSize: 18 },
+  pinOuter: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  alignItems: 'center',
+  justifyContent: 'center',
+  },
+  pinOuterSelected: {
+    width: 46, height: 46, borderRadius: 23,
+    shadowOpacity: 0.38, shadowRadius: 12,
+  },
+  pinInner: {
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderWidth: 1,
+  shadowColor: '#000',
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 3,
+  },
+  pinInnerSelected: {
+    width: 32, height: 32, borderRadius: 16,
+  },
 
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 56, paddingHorizontal: 16, gap: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

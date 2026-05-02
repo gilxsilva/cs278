@@ -133,6 +133,7 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
         style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}
         onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
         activeOpacity={0.88}
+        
       >
         {/* Card header */}
         <View style={styles.cardHeader}>
@@ -153,12 +154,15 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
           <View style={[styles.catBadge, { backgroundColor: cat.color + '22', borderColor: cat.color + '44' }]}>
             <Text style={styles.catBadgeIcon}>{cat.icon}</Text>
             <Text style={[styles.catBadgeLabel, { color: cat.color }]}>{cat.label}</Text>
+            <View style={[styles.feedDivider, { backgroundColor: t.border }]} />
           </View>
         </View>
 
         {/* Photo */}
         {pin.photoURL
-          ? <Image source={{ uri: pin.photoURL }} style={styles.cardPhoto} resizeMode="cover" />
+          ? <View style={styles.photoRow}>
+            <Image source={{ uri: pin.photoURL }} style={styles.cardPhoto} />
+          </View>
           : null
         }
 
@@ -296,7 +300,7 @@ const styles = StyleSheet.create({
   avatarImg: { width: 34, height: 34 },
   avatarEmoji: { fontSize: 14 },
 
-  list: { paddingBottom: 32 },
+  list: { paddingTop: 8, paddingBottom: 40 },
   listEmpty: { flex: 1 },
 
   // Top spots
@@ -317,8 +321,18 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginHorizontal: 16, marginBottom: 8 },
 
   // Feed cards
-  card: { marginHorizontal: 16, marginBottom: 12, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12 },
+  card: {
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+  },
+    cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
   cardAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   authorAvatar: { width: 36, height: 36, borderRadius: 18 },
   authorAvatarFallback: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
@@ -327,9 +341,23 @@ const styles = StyleSheet.create({
   catBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
   catBadgeIcon: { fontSize: 12 },
   catBadgeLabel: { fontSize: 12, fontWeight: '600' },
+  photoRow: {
+  paddingLeft: 16,
+  marginBottom: 8,
+  marginTop: 16
+},
+  
 
-  cardPhoto: { width: '100%', aspectRatio: 4 / 3 },
-  cardBody: { padding: 12, gap: 6 },
+  cardPhoto: {
+  width: 200,
+  height: 200,
+  borderRadius: 6,
+},
+    cardBody: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 6,
+  },
   pinTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
   pinNote: { fontSize: 14, fontStyle: 'italic', lineHeight: 20 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
