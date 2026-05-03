@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 export const CATEGORIES = [
   { id: 'study', label: 'Study', icon: 'book-outline', color: '#7A9FC2', base: '#5B7FA6' },
   { id: 'food', label: 'Food', icon: 'restaurant-outline', color: '#D4939B', base: '#B8626C' },

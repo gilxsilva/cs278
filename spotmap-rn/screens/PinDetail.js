@@ -14,7 +14,7 @@ import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS } from '../mockData';
 const T_LIGHT = {
   bg: '#f5f3ee', surface: '#eceae4', surface2: '#e0ddd6',
   border: 'rgba(0,0,0,0.10)', text: '#0f0f0f',
-  muted: 'rgba(15,15,15,0.45)', accent: '#7ab800',
+  muted: 'rgba(15,15,15,0.45)', accent: '#435ca7',
 };
 
 function timeAgo(timestamp) {

@@ -108,7 +108,7 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
         {pin.photoURL
           ? <Image source={{ uri: pin.photoURL }} style={styles.topCardPhoto} />
           : <View style={[styles.topCardPhotoPlaceholder, { backgroundColor: t.surface2 }]}>
-              <Text style={{ fontSize: 28 }}>{cat.icon}</Text>
+              <Ionicons name={cat.icon} size={28} color={cat.color} />
             </View>
         }
         <View style={styles.topCardBody}>
@@ -152,7 +152,12 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
             </View>
           </View>
           <View style={[styles.catBadge, { backgroundColor: cat.color + '22', borderColor: cat.color + '44' }]}>
-            <Text style={styles.catBadgeIcon}>{cat.icon}</Text>
+            <Ionicons
+            name={cat.icon}
+            size={16}
+            color={cat.color}
+            style={styles.catBadgeIcon}
+          />
             <Text style={[styles.catBadgeLabel, { color: cat.color }]}>{cat.label}</Text>
             <View style={[styles.feedDivider, { backgroundColor: t.border }]} />
           </View>
@@ -222,7 +227,8 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
       {topSpots.length > 0 && (
         <View style={styles.topSection}>
           <View style={styles.topSectionHeader}>
-            <Text style={[styles.topSectionTitle, { color: t.text }]}>🔥 top spots this week</Text>
+            <Ionicons name="flame-outline" size={20} color="#d23f3f" style={{ marginRight: 6 }} />
+            <Text style={[styles.topSectionTitle, { color: t.text }]}>Top spots this week</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topScroll}>
             {topSpots.map(renderTopSpot)}
@@ -240,16 +246,10 @@ export default function FeedView({ navigation, user, theme, toggleTheme }) {
           <Text style={[styles.wordmark, { color: t.accent }]}>spot</Text>
           <View style={styles.headerRight}>
             <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: t.surface, borderColor: t.border }]}
-              onPress={toggleTheme}
-            >
-              <Text style={styles.iconBtnEmoji}>{theme === 'dark' ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.iconBtn, { backgroundColor: t.accent }]}
               onPress={() => navigation.navigate('AddPin')}
             >
-              <Ionicons name="add" size={20} color="#0f0f0f" />
+              <Ionicons name="add" size={20} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
@@ -294,9 +294,9 @@ const styles = StyleSheet.create({
   },
   wordmark: { fontSize: 26, fontWeight: '800', letterSpacing: -1 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  iconBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 0 },
   iconBtnEmoji: { fontSize: 15 },
-  avatarBtn: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden', borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  avatarBtn: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden', borderWidth: 0, alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: 34, height: 34 },
   avatarEmoji: { fontSize: 14 },
 
@@ -305,10 +305,10 @@ const styles = StyleSheet.create({
 
   // Top spots
   topSection: { paddingTop: 16 },
-  topSectionHeader: { paddingHorizontal: 16, marginBottom: 10 },
+  topSectionHeader: { paddingHorizontal: 16, marginBottom: 10, flexDirection: 'row' },
   topSectionTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
   topScroll: { paddingHorizontal: 16, gap: 12, paddingBottom: 16 },
-  topCard: { width: 160, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  topCard: { width: 160, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   topCardPhoto: { width: '100%', height: 100 },
   topCardPhotoPlaceholder: { width: '100%', height: 100, alignItems: 'center', justifyContent: 'center' },
   topCardBody: { padding: 10, gap: 6 },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   authorAvatarFallback: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   authorName: { fontSize: 14, fontWeight: '600' },
   timeAgo: { fontSize: 12, marginTop: 1 },
-  catBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
+  catBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
   catBadgeIcon: { fontSize: 12 },
   catBadgeLabel: { fontSize: 12, fontWeight: '600' },
   photoRow: {

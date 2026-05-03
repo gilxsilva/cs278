@@ -130,7 +130,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
               style={[styles.iconBtn, { backgroundColor: t.accent, borderColor: t.accent }]}
               onPress={() => navigation.navigate('AddPin')}
             >
-              <Ionicons name="add" size={20} color="#0f0f0f" />
+              <Ionicons name="add" size={20} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
@@ -168,7 +168,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
                   borderColor: activeCategory === c.id ? t.text : t.border }]}
               onPress={() => setActiveCategory(c.id)}
             >
-              <View style={[styles.dot, { backgroundColor: c.color }]} />
+              <Ionicons name={c.icon} size={14} color={activeCategory === c.id ? t.text : c.color} />
               <Text style={[styles.chipText, { color: activeCategory === c.id ? t.text : t.muted }]}>
                 {c.label}
               </Text>
@@ -208,13 +208,16 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
               {selectedPin.photoURL
                 ? <Image source={{ uri: selectedPin.photoURL }} style={styles.previewPhoto} />
                 : <View style={[styles.previewPhotoPlaceholder, { backgroundColor: t.surface2 }]}>
-                    <Text style={styles.placeholderIcon}>{cat.icon}</Text>
+                    <Ionicons name={cat.icon} size={26} color={cat.color} />
                   </View>
               }
               <View style={styles.previewInfo}>
-                <Text style={[styles.previewCat, { color: cat.color }]}>
-                  {cat.icon} {cat.label.toUpperCase()}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <Ionicons name={cat.icon} size={11} color={cat.color} />
+                  <Text style={[styles.previewCat, { color: cat.color, marginBottom: 0 }]}>
+                    {cat.label.toUpperCase()}
+                  </Text>
+                </View>
                 <Text style={[styles.previewTitle, { color: t.text }]} numberOfLines={1}>
                   {selectedPin.title}
                 </Text>
@@ -278,13 +281,18 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
   },
 
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 56, paddingHorizontal: 16, gap: 10 },
+  topBar: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16, gap: 10,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 5,
+  },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wordmark: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   iconBtnText: { fontSize: 16 },
-  avatarBtn: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  avatarBtn: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', borderWidth: 0, alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: 38, height: 38 },
   avatarFallback: { fontSize: 16 },
 
