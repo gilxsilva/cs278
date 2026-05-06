@@ -6,15 +6,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore';
+import {
+  doc, getDoc, collection, addDoc, onSnapshot,
+  query, orderBy, serverTimestamp, setDoc, deleteDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase';
-import { getCat, THEMES } from '../constants';
+import { getCat } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS } from '../mockData';
 
-const T_LIGHT = {
-  bg: '#f5f3ee', surface: '#eceae4', surface2: '#e0ddd6',
-  border: 'rgba(0,0,0,0.10)', text: '#0f0f0f',
-  muted: 'rgba(15,15,15,0.45)', accent: '#435ca7',
+const T = {
+  bg:       '#FAF7F2',
+  surface:  '#F2ECE4',
+  surface2: '#E8DDD2',
+  border:   'rgba(28,23,20,0.07)',
+  text:     '#1C1714',
+  muted:    'rgba(28,23,20,0.38)',
+  accent:   '#2D3F5C',
 };
 
 function timeAgo(timestamp) {
@@ -45,9 +52,7 @@ export default function PinDetail({ navigation, route }) {
   const [saveCount, setSaveCount] = useState(0);
   const commentInputRef = useRef(null);
   const scrollRef = useRef(null);
-
-  // Use light theme always in detail (can be extended to receive theme prop)
-  const t = T_LIGHT;
+  const t = T;
 
   useEffect(() => {
     if (USE_MOCK_DATA) {
@@ -127,12 +132,12 @@ export default function PinDetail({ navigation, route }) {
   if (!pin) {
     return (
       <SafeAreaView style={[styles.page, { backgroundColor: t.bg }]}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: t.surface, borderColor: t.border }]} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: t.surface }]} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={18} color={t.text} />
         </TouchableOpacity>
         <View style={styles.centered}>
-          <Text style={{ fontSize: 48 }}>📍</Text>
-          <Text style={[{ color: t.muted, fontSize: 14 }]}>Pin not found</Text>
+          <Text style={styles.emptyGem}>✦</Text>
+          <Text style={[{ color: t.muted, fontSize: 14 }]}>Gem not found</Text>
         </View>
       </SafeAreaView>
     );
@@ -150,12 +155,11 @@ export default function PinDetail({ navigation, route }) {
     >
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        {/* Hero */}
         <View style={styles.heroWrap}>
           {pin.photoURL
             ? <Image source={{ uri: pin.photoURL }} style={styles.heroImg} />
             : <View style={[styles.heroPlaceholder, { backgroundColor: t.surface2 }]}>
-                <Text style={styles.heroEmoji}>{cat.icon}</Text>
+                <Ionicons name={cat.icon} size={56} color={cat.color} />
               </View>
           }
           <TouchableOpacity style={styles.backBtnOverlay} onPress={() => navigation.goBack()}>
@@ -164,13 +168,17 @@ export default function PinDetail({ navigation, route }) {
         </View>
 
         <View style={styles.body}>
-          {/* Category + save row */}
           <View style={styles.topRow}>
-            <View style={[styles.catPill, { backgroundColor: cat.color + '22', borderColor: cat.color + '44' }]}>
-              <Text style={[styles.catPillText, { color: cat.color }]}>{cat.icon}  {cat.label}</Text>
+            <View style={[styles.catPill, { backgroundColor: cat.color + '20' }]}>
+              <Ionicons name={cat.icon} size={12} color={cat.color} />
+              <Text style={[styles.catPillText, { color: cat.color }]}>{cat.label}</Text>
             </View>
             <TouchableOpacity style={styles.saveBtn} onPress={toggleSave} activeOpacity={0.75}>
-              <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={22} color={isSaved ? t.accent : t.muted} />
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={22}
+                color={isSaved ? t.accent : t.muted}
+              />
               <Text style={[styles.saveBtnText, { color: isSaved ? t.accent : t.muted }]}>
                 {saveCount > 0 ? saveCount : 'Save'}
               </Text>
@@ -186,34 +194,31 @@ export default function PinDetail({ navigation, route }) {
             : null
           }
 
-          {/* Author */}
-          <View style={[styles.authorCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+          <View style={[styles.authorCard, { backgroundColor: t.surface }]}>
             {pin.authorPhoto
               ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
               : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface2 }]}>
-                  <Text>👤</Text>
+                  <Ionicons name="person" size={16} color={t.muted} />
                 </View>
             }
             <View>
               <Text style={[styles.authorName, { color: t.text }]}>{pin.authorName}</Text>
               <Text style={[styles.authorDate, { color: t.muted }]}>
-                pinned{date ? ` · ${date}` : ''}
+                left this gem{date ? ` · ${date}` : ''}
               </Text>
             </View>
           </View>
 
-          {/* Location */}
           {pin.locationName
             ? <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={15} color={t.accent} />
+                <Ionicons name="location-outline" size={14} color={t.accent} />
                 <Text style={[styles.locationText, { color: t.muted }]}>{pin.locationName}</Text>
               </View>
             : null
           }
 
-          {/* Saved by */}
           {savers.length > 0 && (
-            <View style={[styles.savedByRow, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <View style={[styles.savedByRow, { backgroundColor: t.surface }]}>
               <View style={styles.savedByAvatars}>
                 {savers.map((uid, i) => (
                   SAVER_PHOTOS[uid]
@@ -226,39 +231,40 @@ export default function PinDetail({ navigation, route }) {
                 ))}
               </View>
               <Text style={[styles.savedByText, { color: t.muted }]}>
-                {saveCount === 1
-                  ? '1 person saved this'
-                  : `${saveCount} people saved this`}
+                {saveCount === 1 ? '1 person saved this' : `${saveCount} people saved this`}
               </Text>
             </View>
           )}
 
-          {/* ── Comments ── */}
-          <View style={styles.commentsSection}>
-            <Text style={[styles.commentsSectionTitle, { color: t.text }]}>
-              {comments.length > 0 ? `${comments.length} comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
+          <View style={styles.thoughtsSection}>
+            <Text style={[styles.thoughtsTitle, { color: t.text }]}>
+              {comments.length > 0
+                ? `${comments.length} thought${comments.length !== 1 ? 's' : ''}`
+                : 'Thoughts'}
             </Text>
 
             {comments.length === 0 && (
-              <Text style={[styles.noComments, { color: t.muted }]}>Be the first to comment</Text>
+              <Text style={[styles.noThoughts, { color: t.muted }]}>
+                Be the first to share a thought
+              </Text>
             )}
 
             {comments.map(c => (
-              <View key={c.id} style={styles.comment}>
+              <View key={c.id} style={styles.thought}>
                 {c.authorPhoto
-                  ? <Image source={{ uri: c.authorPhoto }} style={styles.commentAvatar} />
-                  : <View style={[styles.commentAvatarFallback, { backgroundColor: t.surface2 }]}>
-                      <Text style={{ fontSize: 12 }}>👤</Text>
+                  ? <Image source={{ uri: c.authorPhoto }} style={styles.thoughtAvatar} />
+                  : <View style={[styles.thoughtAvatarFallback, { backgroundColor: t.surface2 }]}>
+                      <Ionicons name="person" size={12} color={t.muted} />
                     </View>
                 }
-                <View style={[styles.commentBubble, { backgroundColor: t.surface }]}>
-                  <View style={styles.commentHeader}>
-                    <Text style={[styles.commentAuthor, { color: t.text }]}>
+                <View style={[styles.thoughtBubble, { backgroundColor: t.surface }]}>
+                  <View style={styles.thoughtHeader}>
+                    <Text style={[styles.thoughtAuthor, { color: t.text }]}>
                       {c.authorName?.split(' ')[0]}
                     </Text>
-                    <Text style={[styles.commentTime, { color: t.muted }]}>{timeAgo(c.createdAt)}</Text>
+                    <Text style={[styles.thoughtTime, { color: t.muted }]}>{timeAgo(c.createdAt)}</Text>
                   </View>
-                  <Text style={[styles.commentText, { color: t.text }]}>{c.text}</Text>
+                  <Text style={[styles.thoughtText, { color: t.text }]}>{c.text}</Text>
                 </View>
               </View>
             ))}
@@ -266,12 +272,11 @@ export default function PinDetail({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* Comment input */}
       <View style={[styles.inputBar, { backgroundColor: t.bg, borderTopColor: t.border }]}>
         <TextInput
           ref={commentInputRef}
-          style={[styles.commentInput, { backgroundColor: t.surface, borderColor: t.border, color: t.text }]}
-          placeholder="add a comment…"
+          style={[styles.thoughtInput, { backgroundColor: t.surface, borderColor: t.border, color: t.text }]}
+          placeholder="share a thought…"
           placeholderTextColor={t.muted}
           value={commentText}
           onChangeText={setCommentText}
@@ -285,7 +290,7 @@ export default function PinDetail({ navigation, route }) {
           onPress={submitComment}
           disabled={!commentText.trim() || submitting}
         >
-          <Ionicons name="arrow-up" size={18} color={commentText.trim() ? '#0f0f0f' : t.muted} />
+          <Ionicons name="arrow-up" size={18} color={commentText.trim() ? '#FAF7F2' : t.muted} />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -295,23 +300,29 @@ export default function PinDetail({ navigation, route }) {
 const styles = StyleSheet.create({
   page: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyGem: { fontSize: 40, color: '#C4A882' },
 
   heroWrap: { position: 'relative' },
   heroImg: { width: '100%', aspectRatio: 4 / 3 },
   heroPlaceholder: { width: '100%', aspectRatio: 4 / 3, alignItems: 'center', justifyContent: 'center' },
-  heroEmoji: { fontSize: 72 },
   backBtnOverlay: {
     position: 'absolute', top: 52, left: 16,
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.40)',
     alignItems: 'center', justifyContent: 'center',
   },
-  backBtn: { margin: 16, width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    margin: 16, width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   body: { padding: 20, gap: 16, paddingBottom: 8 },
 
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  catPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1 },
+  catPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100,
+  },
   catPillText: { fontSize: 13, fontWeight: '600' },
   saveBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   saveBtnText: { fontSize: 14, fontWeight: '600' },
@@ -320,43 +331,55 @@ const styles = StyleSheet.create({
   noteWrap: { borderLeftWidth: 2, paddingLeft: 14 },
   note: { fontSize: 16, fontStyle: 'italic', lineHeight: 24 },
 
-  authorCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1 },
+  authorCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, borderRadius: 16,
+  },
   authorAvatar: { width: 36, height: 36, borderRadius: 18 },
-  authorAvatarFallback: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  authorName: { fontSize: 14, fontWeight: '500' },
+  authorAvatarFallback: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+  },
+  authorName: { fontSize: 14, fontWeight: '600' },
   authorDate: { fontSize: 12, marginTop: 2 },
 
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   locationText: { fontSize: 14 },
 
-  savedByRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
+  savedByRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderRadius: 12,
+  },
   savedByAvatars: { flexDirection: 'row' },
-  savedByAvatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#f5f3ee' },
+  savedByAvatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: '#FAF7F2' },
   savedByText: { fontSize: 13 },
 
-  // Comments
-  commentsSection: { gap: 12, paddingBottom: 16 },
-  commentsSectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  noComments: { fontSize: 14, fontStyle: 'italic' },
-  comment: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  commentAvatar: { width: 30, height: 30, borderRadius: 15, marginTop: 2 },
-  commentAvatarFallback: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  commentBubble: { flex: 1, borderRadius: 12, padding: 10, gap: 3 },
-  commentHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  commentAuthor: { fontSize: 13, fontWeight: '600' },
-  commentTime: { fontSize: 11 },
-  commentText: { fontSize: 14, lineHeight: 20 },
+  thoughtsSection: { gap: 12, paddingBottom: 16 },
+  thoughtsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  noThoughts: { fontSize: 14, fontStyle: 'italic' },
+  thought: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  thoughtAvatar: { width: 30, height: 30, borderRadius: 15, marginTop: 2 },
+  thoughtAvatarFallback: {
+    width: 30, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  thoughtBubble: { flex: 1, borderRadius: 14, padding: 10, gap: 3 },
+  thoughtHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  thoughtAuthor: { fontSize: 13, fontWeight: '600' },
+  thoughtTime: { fontSize: 11 },
+  thoughtText: { fontSize: 14, lineHeight: 20 },
 
-  // Input bar
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, paddingBottom: Platform.OS === 'ios' ? 28 : 12,
   },
-  commentInput: {
+  thoughtInput: {
     flex: 1, borderWidth: 1, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10,
     fontSize: 15, maxHeight: 100,
   },
-  sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  sendBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 2,
+  },
 });

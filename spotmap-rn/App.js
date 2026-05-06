@@ -25,7 +25,7 @@ function MainTabs({ user, theme, toggleTheme }) {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: t.surface,
+          backgroundColor: t.bg,
           borderTopColor: t.border,
           borderTopWidth: 1,
           height: 84,
@@ -34,17 +34,17 @@ function MainTabs({ user, theme, toggleTheme }) {
         },
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.muted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
+        tabBarIcon: ({ focused, color }) => {
           const icons = {
-            Feed:  focused ? 'list'     : 'list-outline',
-            Map:   focused ? 'map'      : 'map-outline',
+            Discover: focused ? 'compass'    : 'compass-outline',
+            Map:      focused ? 'map'         : 'map-outline',
           };
           return <Ionicons name={icons[route.name]} size={22} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Feed">
+      <Tab.Screen name="Discover">
         {props => <FeedScreen {...props} user={user} theme={theme} toggleTheme={toggleTheme} />}
       </Tab.Screen>
       <Tab.Screen name="Map">
@@ -69,7 +69,9 @@ export default function App() {
   if (user === undefined) {
     return (
       <View style={styles.splash}>
-        <Text style={styles.splashLogo}>spot</Text>
+        <Text style={styles.splashStar}>✦</Text>
+        <Text style={styles.splashLogo}>gem</Text>
+        <Text style={styles.splashSub}>places worth remembering</Text>
       </View>
     );
   }
@@ -107,14 +109,26 @@ export default function App() {
 const styles = StyleSheet.create({
   splash: {
     flex: 1,
-    backgroundColor: '#f5f3ee',
+    backgroundColor: '#FAF7F2',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+  },
+  splashStar: {
+    fontSize: 24,
+    color: '#2D3F5C',
+    marginBottom: 4,
   },
   splashLogo: {
     fontSize: 52,
     fontWeight: '800',
-    color: '#7ab800',
+    color: '#2D3F5C',
     letterSpacing: -2,
+  },
+  splashSub: {
+    fontSize: 14,
+    color: 'rgba(28,23,20,0.38)',
+    marginTop: 4,
+    letterSpacing: 0.3,
   },
 });

@@ -16,7 +16,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
   const [pins, setPins] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPin, setSelectedPin] = useState(null);
-  const [region, setRegion] = useState({
+  const regionRef = useRef({
     ...STANFORD,
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
@@ -37,15 +37,17 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
   }, []);
 
   const zoomIn = () => {
-    const next = { ...region, latitudeDelta: region.latitudeDelta / 2, longitudeDelta: region.longitudeDelta / 2 };
+    const r = regionRef.current;
+    const next = { ...r, latitudeDelta: r.latitudeDelta / 2, longitudeDelta: r.longitudeDelta / 2 };
+    regionRef.current = next;
     mapRef.current?.animateToRegion(next, 250);
-    setRegion(next);
   };
 
   const zoomOut = () => {
-    const next = { ...region, latitudeDelta: region.latitudeDelta * 2, longitudeDelta: region.longitudeDelta * 2 };
+    const r = regionRef.current;
+    const next = { ...r, latitudeDelta: r.latitudeDelta * 2, longitudeDelta: r.longitudeDelta * 2 };
+    regionRef.current = next;
     mapRef.current?.animateToRegion(next, 250);
-    setRegion(next);
   };
 
   useEffect(() => {
@@ -78,11 +80,11 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
-        initialRegion={region}
+        initialRegion={regionRef.current}
         userInterfaceStyle={theme}
         customMapStyle={theme === 'dark' ? MAP_STYLES_DARK : MAP_STYLES_LIGHT}
         onPress={() => setSelectedPin(null)}
-        onRegionChangeComplete={setRegion}
+        onRegionChangeComplete={r => { regionRef.current = r; }}
         showsUserLocation
         showsCompass={false}
         toolbarEnabled={false}
