@@ -12,7 +12,7 @@ import { getCat, THEMES } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
 
 export default function Profile({ navigation, route, theme }) {
-  const { user } = route.params;
+  const { user, isOwnProfile = false } = route.params;
   const [pins, setPins] = useState([]);
   const t = THEMES[theme];
 
@@ -119,7 +119,9 @@ export default function Profile({ navigation, route, theme }) {
         </View>
       )}
 
-      <Text style={[styles.sectionTitle, { color: t.text }]}>your gems</Text>
+      <Text style={[styles.sectionTitle, { color: t.text }]}>
+        {isOwnProfile ? 'your gems' : `${user.displayName?.split(' ')[0]}'s gems`}
+      </Text>
     </>
   );
 
@@ -141,12 +143,15 @@ export default function Profile({ navigation, route, theme }) {
             <Ionicons name="chevron-back" size={18} color={t.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: t.text }]}>profile</Text>
-          <TouchableOpacity
-            style={[styles.signOutBtn, { backgroundColor: t.surface }]}
-            onPress={handleSignOut}
-          >
-            <Ionicons name="log-out-outline" size={18} color={t.muted} />
-          </TouchableOpacity>
+          {isOwnProfile
+            ? <TouchableOpacity
+                style={[styles.signOutBtn, { backgroundColor: t.surface }]}
+                onPress={handleSignOut}
+              >
+                <Ionicons name="log-out-outline" size={18} color={t.muted} />
+              </TouchableOpacity>
+            : <View style={{ width: 34 }} />
+          }
         </View>
       </SafeAreaView>
 

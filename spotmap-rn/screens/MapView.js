@@ -12,7 +12,7 @@ import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
 
 const PREVIEW_H = 200;
 
-export default function MapScreen({ navigation, user, theme, toggleTheme }) {
+export default function MapScreen({ navigation, route, user, theme, toggleTheme }) {
   const [pins, setPins] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedPin, setSelectedPin] = useState(null);
@@ -58,10 +58,6 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
     }).start();
   }, [selectedPin]);
 
-  const filtered = activeCategory === 'all'
-    ? pins
-    : pins.filter(p => p.category === activeCategory);
-
   const handleMarkerPress = (pin) => {
     setSelectedPin(pin);
     mapRef.current?.animateToRegion({
@@ -71,6 +67,17 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
       longitudeDelta: 0.01,
     }, 400);
   };
+
+  useEffect(() => {
+    const pinId = route.params?.pinId;
+    if (!pinId || pins.length === 0) return;
+    const pin = pins.find(p => p.id === pinId);
+    if (pin) handleMarkerPress(pin);
+  }, [route.params?.pinId, pins]);
+
+  const filtered = activeCategory === 'all'
+    ? pins
+    : pins.filter(p => p.category === activeCategory);
 
   const cat = selectedPin ? getCat(selectedPin.category) : null;
 
@@ -96,28 +103,22 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
             <Marker
               key={pin.id}
               coordinate={{ latitude: pin.lat, longitude: pin.lng }}
-              onPress={() => handleMarkerPress(pin)}
               tracksViewChanges={isSelected}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={[
-            styles.pinOuter,
-            { backgroundColor: c.base + '20' },
-          ]}>
-            <View style={[
-              styles.pinInner,
-              {
-                backgroundColor: isSelected ? c.base : '#fff',
-                borderColor: c.base + '80',
-              }
-            ]}>
-              <Ionicons
-                name={c.icon}
-                size={14}
-                color={isSelected ? '#fff' : c.base}
-              />
-            </View>
-          </View>
+              <TouchableOpacity
+                onPress={() => handleMarkerPress(pin)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.pinOuter, { backgroundColor: c.base + '20' }]}>
+                  <View style={[
+                    styles.pinInner,
+                    { backgroundColor: isSelected ? c.base : '#fff', borderColor: c.base + '80' }
+                  ]}>
+                    <Ionicons name={c.icon} size={14} color={isSelected ? '#fff' : c.base} />
+                  </View>
+                </View>
+              </TouchableOpacity>
             </Marker>
           );
         })}
@@ -126,7 +127,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
       {/* Top bar */}
       <View style={styles.topBar}>
         <View style={styles.topRow}>
-          <Text style={[styles.wordmark, { color: '#405973' }]}>spot</Text>
+          <Text style={[styles.wordmark, { color: '#405973' }]}>gem</Text>
           <View style={styles.topRight}>
             <TouchableOpacity
               style={[styles.iconBtn, { backgroundColor: t.accent, borderColor: t.accent }]}
@@ -136,7 +137,7 @@ export default function MapScreen({ navigation, user, theme, toggleTheme }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
-              onPress={() => navigation.navigate('Profile', { user })}
+              onPress={() => navigation.navigate('Profile', { user, isOwnProfile: true })}
             >
               {user.photoURL
                 ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
@@ -326,5 +327,5 @@ const styles = StyleSheet.create({
   byAvatar: { width: 20, height: 20, borderRadius: 10 },
   byName: { fontSize: 12 },
   viewBtn: { marginTop: 14, borderRadius: 100, paddingVertical: 13, alignItems: 'center' },
-  viewBtnText: { fontSize: 14, fontWeight: '600', color: '#0f0f0f' },
+  viewBtnText: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
 });

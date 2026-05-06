@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, TextInput, KeyboardAvoidingView,
-  Platform,
+  Platform, Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +50,7 @@ export default function PinDetail({ navigation, route }) {
   const [submitting, setSubmitting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveCount, setSaveCount] = useState(0);
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const commentInputRef = useRef(null);
   const scrollRef = useRef(null);
   const t = T;
@@ -194,20 +195,29 @@ export default function PinDetail({ navigation, route }) {
             : null
           }
 
-          <View style={[styles.authorCard, { backgroundColor: t.surface }]}>
-            {pin.authorPhoto
-              ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
-              : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface2 }]}>
-                  <Ionicons name="person" size={16} color={t.muted} />
-                </View>
-            }
+          <TouchableOpacity
+            style={[styles.authorCard, { backgroundColor: t.surface }]}
+            onPress={() => navigation.navigate('Profile', {
+              user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
+              isOwnProfile: pin.authorId === userId,
+            })}
+            activeOpacity={0.8}
+          >
+            <Pressable onPress={() => pin.authorPhoto && setProfilePhoto(pin.authorPhoto)}>
+              {pin.authorPhoto
+                ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
+                : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface2 }]}>
+                    <Ionicons name="person" size={16} color={t.muted} />
+                  </View>
+              }
+            </Pressable>
             <View>
               <Text style={[styles.authorName, { color: t.text }]}>{pin.authorName}</Text>
               <Text style={[styles.authorDate, { color: t.muted }]}>
                 left this gem{date ? ` · ${date}` : ''}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {pin.locationName
             ? <View style={styles.locationRow}>
@@ -222,11 +232,12 @@ export default function PinDetail({ navigation, route }) {
               <View style={styles.savedByAvatars}>
                 {savers.map((uid, i) => (
                   SAVER_PHOTOS[uid]
-                    ? <Image
-                        key={uid}
-                        source={{ uri: SAVER_PHOTOS[uid] }}
-                        style={[styles.savedByAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 4 - i }]}
-                      />
+                    ? <Pressable key={uid} onPress={() => setProfilePhoto(SAVER_PHOTOS[uid])}>
+                        <Image
+                          source={{ uri: SAVER_PHOTOS[uid] }}
+                          style={[styles.savedByAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 4 - i }]}
+                        />
+                      </Pressable>
                     : null
                 ))}
               </View>
@@ -251,17 +262,28 @@ export default function PinDetail({ navigation, route }) {
 
             {comments.map(c => (
               <View key={c.id} style={styles.thought}>
-                {c.authorPhoto
-                  ? <Image source={{ uri: c.authorPhoto }} style={styles.thoughtAvatar} />
-                  : <View style={[styles.thoughtAvatarFallback, { backgroundColor: t.surface2 }]}>
-                      <Ionicons name="person" size={12} color={t.muted} />
-                    </View>
-                }
+                <Pressable onPress={() => c.authorPhoto && setProfilePhoto(c.authorPhoto)}>
+                  {c.authorPhoto
+                    ? <Image source={{ uri: c.authorPhoto }} style={styles.thoughtAvatar} />
+                    : <View style={[styles.thoughtAvatarFallback, { backgroundColor: t.surface2 }]}>
+                        <Ionicons name="person" size={12} color={t.muted} />
+                      </View>
+                  }
+                </Pressable>
                 <View style={[styles.thoughtBubble, { backgroundColor: t.surface }]}>
                   <View style={styles.thoughtHeader}>
-                    <Text style={[styles.thoughtAuthor, { color: t.text }]}>
-                      {c.authorName?.split(' ')[0]}
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('Profile', {
+                        user: { uid: c.authorId, displayName: c.authorName, photoURL: c.authorPhoto },
+                        isOwnProfile: c.authorId === userId,
+                      })}
+                      activeOpacity={0.6}
+                      style={{ alignSelf: 'flex-start' }}
+                    >
+                      <Text style={[styles.thoughtAuthor, { color: t.text }]}>
+                        {c.authorName?.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
                     <Text style={[styles.thoughtTime, { color: t.muted }]}>{timeAgo(c.createdAt)}</Text>
                   </View>
                   <Text style={[styles.thoughtText, { color: t.text }]}>{c.text}</Text>
@@ -271,6 +293,12 @@ export default function PinDetail({ navigation, route }) {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={!!profilePhoto} transparent animationType="fade" onRequestClose={() => setProfilePhoto(null)}>
+        <Pressable style={styles.photoModalBackdrop} onPress={() => setProfilePhoto(null)}>
+          {profilePhoto && <Image source={{ uri: profilePhoto }} style={styles.photoModalImage} />}
+        </Pressable>
+      </Modal>
 
       <View style={[styles.inputBar, { backgroundColor: t.bg, borderTopColor: t.border }]}>
         <TextInput
@@ -382,4 +410,10 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center', marginBottom: 2,
   },
+
+  photoModalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoModalImage: { width: 240, height: 240, borderRadius: 120 },
 });
