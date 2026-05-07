@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCat, THEMES } from '../constants';
 import { MOCK_COMMENTS, MOCK_USERS } from '../mockData';
+import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 const SAVER_NAMES = {
   mock_eva:   'Eva',
@@ -34,6 +35,8 @@ export default function PostComments({ navigation, route, theme }) {
   const [comments, setComments] = useState(MOCK_COMMENTS[pin.id] ?? []);
   const [newComment, setNewComment] = useState('');
   const [likedComments, setLikedComments] = useState({});
+  const [collectionModalVisible, setCollectionModalVisible] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
 
   const firstName = pin.authorName?.split(' ')[0] ?? 'Someone';
   const saverNames = (pin.savedBy ?? [])
@@ -158,13 +161,26 @@ export default function PostComments({ navigation, route, theme }) {
       <SafeAreaView edges={['top']} style={{ backgroundColor: t.bg }}>
         <View style={[styles.header, { borderBottomColor: t.border }]}>
           <Text style={[styles.wordmark, { color: t.accent }]}>gem</Text>
-          <TouchableOpacity
-            style={[styles.closeBtn, { backgroundColor: t.surface }]}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="close" size={18} color={t.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.headerBtn, { backgroundColor: t.surface }]}
+              onPress={() => setCollectionModalVisible(true)}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={bookmarked ? t.accent : t.text}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.closeBtn, { backgroundColor: t.surface }]}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="close" size={18} color={t.text} />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -180,6 +196,13 @@ export default function PostComments({ navigation, route, theme }) {
         }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+      />
+
+      <SaveToCollectionModal
+        visible={collectionModalVisible}
+        pin={pin}
+        onClose={() => setCollectionModalVisible(false)}
+        onSave={(_, ids) => setBookmarked(ids.length > 0)}
       />
 
       <SafeAreaView edges={['bottom']} style={[styles.inputSafe, { backgroundColor: t.bg, borderTopColor: t.border }]}>
@@ -220,6 +243,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1,
   },
   wordmark: { fontSize: 24, fontWeight: '800', letterSpacing: -0.8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
   closeBtn: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',

@@ -189,3 +189,10 @@ export const MOCK_COMMENTS = {
     { id: 'c8', text: 'There are also private study rooms on this floor you can book', authorId: 'mock_eva', authorName: 'Eva W.', authorPhoto: MOCK_USERS.mock_eva.photoURL, createdAt: ts(60) },
   ],
 };
+
+export const MOCK_COLLECTIONS = [
+  { id: 'coll_sf',     name: 'SF Gems',     count: 12, visibility: 'shared'  },
+  { id: 'coll_study',  name: 'Study Gems',  count: 6,  visibility: 'private' },
+  { id: 'coll_summer', name: 'Summer Gems', count: 4,  visibility: 'shared'  },
+  { id: 'coll_saved',  name: 'Saved',       count: 8,  visibility: 'private' },
+];

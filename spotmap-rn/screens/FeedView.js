@@ -12,6 +12,7 @@ import {
 import { db } from '../firebase';
 import { getCat, CATEGORIES, THEMES } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
+import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 function timeAgo(timestamp) {
   if (!timestamp) return '';
@@ -44,6 +45,8 @@ export default function FeedView({ navigation, user, theme }) {
   const [saveCounts, setSaveCounts] = useState({});
   const [activeFilter, setActiveFilter] = useState('all');
   const [profilePhoto, setProfilePhoto] = useState(null);
+  const [collectionModal, setCollectionModal] = useState({ visible: false, pin: null });
+  const [bookmarked, setBookmarked] = useState({});
   const t = THEMES[theme];
 
   useEffect(() => {
@@ -251,11 +254,14 @@ export default function FeedView({ navigation, user, theme }) {
                 <Text style={styles.countPillText}>+{count}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => toggleSave(pin)} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => setCollectionModal({ visible: true, pin })}
+              activeOpacity={0.7}
+            >
               <Ionicons
-                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                name={bookmarked[pin.id] ? 'bookmark' : 'bookmark-outline'}
                 size={23}
-                color={isSaved ? t.accent : t.muted}
+                color={bookmarked[pin.id] ? t.accent : t.muted}
               />
             </TouchableOpacity>
           </View>
@@ -357,6 +363,13 @@ export default function FeedView({ navigation, user, theme }) {
             <Text style={[styles.emptySub, { color: t.muted }]}>Be the first to leave one</Text>
           </View>
         }
+      />
+
+      <SaveToCollectionModal
+        visible={collectionModal.visible}
+        pin={collectionModal.pin}
+        onClose={() => setCollectionModal(prev => ({ ...prev, visible: false }))}
+        onSave={(pinId, ids) => setBookmarked(prev => ({ ...prev, [pinId]: ids.length > 0 }))}
       />
 
       <Modal visible={!!profilePhoto} transparent animationType="fade" onRequestClose={() => setProfilePhoto(null)}>
