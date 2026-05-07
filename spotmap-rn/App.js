@@ -15,6 +15,7 @@ import AddPinScreen from './screens/AddPin';
 import PinDetailScreen from './screens/PinDetail';
 import ProfileScreen from './screens/Profile';
 import PostCommentsScreen from './screens/PostComments';
+import SearchScreen from './screens/Search';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -101,6 +102,9 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="PostComments" options={{ animation: 'slide_from_bottom' }}>
                 {props => <PostCommentsScreen {...props} theme={theme} />}
+              </Stack.Screen>
+              <Stack.Screen name="Search" options={{ animation: 'slide_from_bottom' }}>
+                {props => <SearchScreen {...props} user={user} theme={theme} />}
               </Stack.Screen>
             </>
           )}

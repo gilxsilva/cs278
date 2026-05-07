@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, Image,
-  StyleSheet, ScrollView, Modal, Pressable, TextInput,
+  StyleSheet, ScrollView, Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,8 +44,6 @@ export default function FeedView({ navigation, user, theme }) {
   const [saveCounts, setSaveCounts] = useState({});
   const [activeFilter, setActiveFilter] = useState('all');
   const [profilePhoto, setProfilePhoto] = useState(null);
-  const [searchActive, setSearchActive] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const t = THEMES[theme];
 
   useEffect(() => {
@@ -289,51 +287,30 @@ export default function FeedView({ navigation, user, theme }) {
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: t.bg }}>
         <View style={styles.header}>
-          {searchActive ? (
-            <>
-              <View style={[styles.searchInputWrap, { backgroundColor: t.surface }]}>
-                <Ionicons name="search" size={15} color={t.muted} />
-                <TextInput
-                  autoFocus
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="search people…"
-                  placeholderTextColor={t.muted}
-                  style={[styles.searchInput, { color: t.text }]}
-                />
-              </View>
-              <TouchableOpacity onPress={() => { setSearchActive(false); setSearchQuery(''); }}>
-                <Text style={[styles.searchCancel, { color: t.accent }]}>Cancel</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.wordmark, { color: t.accent }]}>gem</Text>
-              <View style={styles.headerRight}>
-                <TouchableOpacity onPress={() => setSearchActive(true)}>
-                  <Ionicons name="search" size={20} color={t.muted} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.addBtn, { backgroundColor: t.accent }]}
-                  onPress={() => navigation.navigate('AddPin')}
-                >
-                  <Ionicons name="add" size={20} color="#FAF7F2" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.avatarBtn, { backgroundColor: t.surface }]}
-                  onPress={() => navigation.navigate('Profile', { user, isOwnProfile: true })}
-                >
-                  {user.photoURL
-                    ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
-                    : <Ionicons name="person" size={16} color={t.muted} />
-                  }
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          <Text style={[styles.wordmark, { color: t.accent }]}>gem</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+              <Ionicons name="search" size={20} color={t.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: t.accent }]}
+              onPress={() => navigation.navigate('AddPin')}
+            >
+              <Ionicons name="add" size={20} color="#FAF7F2" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.avatarBtn, { backgroundColor: t.surface }]}
+              onPress={() => navigation.navigate('Profile', { user, isOwnProfile: true })}
+            >
+              {user.photoURL
+                ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
+                : <Ionicons name="person" size={16} color={t.muted} />
+              }
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {!searchActive && <ScrollView
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
@@ -362,46 +339,8 @@ export default function FeedView({ navigation, user, theme }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>}
+        </ScrollView>
       </SafeAreaView>
-
-      {searchActive && searchQuery.length > 0 && (() => {
-        const seen = new Set();
-        const users = pins
-          .filter(p => p.authorName?.toLowerCase().includes(searchQuery.toLowerCase()))
-          .filter(p => { if (seen.has(p.authorId)) return false; seen.add(p.authorId); return true; });
-        return (
-          <View style={[styles.searchResults, { backgroundColor: t.bg, borderColor: t.border }]}>
-            {users.length === 0
-              ? <Text style={[styles.searchEmpty, { color: t.muted }]}>No people found</Text>
-              : users.map(p => (
-                  <TouchableOpacity
-                    key={p.authorId}
-                    style={styles.searchResultRow}
-                    onPress={() => {
-                      setSearchActive(false);
-                      setSearchQuery('');
-                      navigation.navigate('Profile', {
-                        user: { uid: p.authorId, displayName: p.authorName, photoURL: p.authorPhoto },
-                        isOwnProfile: p.authorId === user.uid,
-                      });
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    {p.authorPhoto
-                      ? <Image source={{ uri: p.authorPhoto }} style={styles.searchAvatar} />
-                      : <View style={[styles.searchAvatarFallback, { backgroundColor: t.surface2 }]}>
-                          <Ionicons name="person" size={16} color={t.muted} />
-                        </View>
-                    }
-                    <Text style={[styles.searchName, { color: t.text }]}>{p.authorName}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={t.muted} style={{ marginLeft: 'auto' }} />
-                  </TouchableOpacity>
-                ))
-            }
-          </View>
-        );
-      })()}
 
       <FlatList
         data={filteredPins}
@@ -446,24 +385,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
   },
   avatarImg: { width: 36, height: 36 },
-
-  searchInputWrap: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
-  },
-  searchInput: { flex: 1, fontSize: 15 },
-  searchCancel: { fontSize: 15, fontWeight: '600', paddingLeft: 10 },
-  searchResults: {
-    borderBottomWidth: 1, paddingVertical: 4,
-  },
-  searchResultRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingVertical: 12,
-  },
-  searchAvatar: { width: 36, height: 36, borderRadius: 18 },
-  searchAvatarFallback: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  searchName: { fontSize: 15, fontWeight: '600' },
-  searchEmpty: { fontSize: 14, textAlign: 'center', paddingVertical: 16 },
 
   filterScroll: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   filterChip: {
