@@ -15,10 +15,10 @@ import { getCat } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS } from '../mockData';
 
 const T = {
-  bg:       '#FAF7F2',
-  surface:  '#F2ECE4',
-  surface2: '#E8DDD2',
-  border:   'rgba(28,23,20,0.07)',
+  bg:       '#FFFFFF',
+  surface:  '#F5F5F5',
+  surface2: '#EBEBEB',
+  border:   'rgba(0,0,0,0.07)',
   text:     '#1C1714',
   muted:    'rgba(28,23,20,0.38)',
   accent:   '#0D1F3C',

@@ -11,9 +11,9 @@ import { db, storage } from '../firebase';
 import { CATEGORIES, NEARBY_PLACES } from '../constants';
 
 const T = {
-  bg:       '#FAF7F2',
-  surface:  '#F2ECE4',
-  surface2: '#E8DDD2',
+  bg:       '#FFFFFF',
+  surface:  '#f6f0e9',
+  surface2: '#f2e8de',
   border:   'rgba(28,23,20,0.07)',
   text:     '#1C1714',
   muted:    'rgba(28,23,20,0.38)',
