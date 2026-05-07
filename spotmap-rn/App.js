@@ -14,6 +14,7 @@ import MapScreen from './screens/MapView';
 import AddPinScreen from './screens/AddPin';
 import PinDetailScreen from './screens/PinDetail';
 import ProfileScreen from './screens/Profile';
+import PostCommentsScreen from './screens/PostComments';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -97,6 +98,9 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="Profile" options={{ animation: 'slide_from_right' }}>
                 {props => <ProfileScreen {...props} theme={theme} />}
+              </Stack.Screen>
+              <Stack.Screen name="PostComments" options={{ animation: 'slide_from_bottom' }}>
+                {props => <PostCommentsScreen {...props} theme={theme} />}
               </Stack.Screen>
             </>
           )}

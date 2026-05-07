@@ -31,6 +31,13 @@ const SAVER_PHOTOS = {
   guest:      'https://i.pravatar.cc/150?img=12',
 };
 
+const SAVER_NAMES = {
+  mock_eva:   'Eva',
+  mock_yujen: 'Yujen',
+  mock_alex:  'Alex',
+  guest:      'Demo',
+};
+
 export default function FeedView({ navigation, user, theme }) {
   const [pins, setPins] = useState([]);
   const [saves, setSaves] = useState({});
@@ -140,93 +147,122 @@ export default function FeedView({ navigation, user, theme }) {
     const cat = getCat(pin.category);
     const isSaved = saves[pin.id] ?? false;
     const count = saveCounts[pin.id] ?? 0;
-    return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: t.surface }]}
-        onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
-        activeOpacity={0.92}
-      >
-        {pin.photoURL
-          ? <Image source={{ uri: pin.photoURL }} style={styles.cardPhoto} />
-          : null
-        }
+    const firstName = pin.authorName?.split(' ')[0] ?? 'Someone';
+    const saverNames = (pin.savedBy ?? [])
+      .filter(uid => uid !== pin.authorId)
+      .slice(0, 2)
+      .map(uid => SAVER_NAMES[uid])
+      .filter(Boolean);
 
-        <View style={styles.cardBody}>
-          <View style={styles.cardAuthorRow}>
-            <Pressable onPress={() => pin.authorPhoto && setProfilePhoto(pin.authorPhoto)}>
-              {pin.authorPhoto
-                ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
-                : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface2 }]}>
-                    <Ionicons name="person" size={14} color={t.muted} />
-                  </View>
-              }
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Profile', {
-                  user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
-                  isOwnProfile: pin.authorId === user.uid,
-                })}
-                activeOpacity={0.6}
-                style={{ alignSelf: 'flex-start' }}
-              >
-                <Text style={[styles.authorName, { color: t.text }]}>
-                  {pin.authorName?.split(' ')[0] ?? 'Someone'}
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.timeAgo, { color: t.muted }]}>{timeAgo(pin.createdAt)}</Text>
-            </View>
-            <View style={[styles.catBadge, { backgroundColor: cat.color + '18' }]}>
-              <Ionicons name={cat.icon} size={11} color={cat.color} />
-              <Text style={[styles.catBadgeLabel, { color: cat.color }]}>{cat.label}</Text>
-            </View>
+    return (
+      <View style={[styles.card, { backgroundColor: t.bg, borderBottomColor: t.border }]}>
+
+        {/* Header: avatar · narrative · category sticker */}
+        <View style={styles.cardHeader}>
+          <Pressable onPress={() => pin.authorPhoto && setProfilePhoto(pin.authorPhoto)}>
+            {pin.authorPhoto
+              ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
+              : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface }]}>
+                  <Ionicons name="person" size={18} color={t.muted} />
+                </View>
+            }
+          </Pressable>
+
+          <View style={styles.narrativeWrap}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.narrativeLine, { color: t.text }]}>
+                <Text style={styles.narrativeBold}>{firstName} </Text>
+                {'found '}
+                <Text style={styles.narrativeBold}>{pin.title}</Text>
+                {saverNames.length > 0
+                  ? <Text style={[styles.narrativeMuted, { color: t.muted }]}>{` with ${saverNames.join(' and ')}`}</Text>
+                  : null
+                }
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.cardTimestamp, { color: t.muted }]}>{timeAgo(pin.createdAt)}</Text>
           </View>
 
-          <Text style={[styles.pinTitle, { color: t.text }]}>{pin.title}</Text>
+          <TouchableOpacity
+            style={[styles.catSticker, { backgroundColor: cat.color + '20' }]}
+            onPress={() => navigation.navigate('Profile', {
+              user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
+              isOwnProfile: pin.authorId === user.uid,
+            })}
+            activeOpacity={0.75}
+          >
+            <Ionicons name={cat.icon} size={16} color={cat.color} />
+          </TouchableOpacity>
+        </View>
 
-          {pin.note
-            ? <Text style={[styles.pinNote, { color: t.muted }]}>"{pin.note}"</Text>
-            : null
-          }
-
-          {pin.locationName
-            ? <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={12} color={t.muted} />
-                <Text style={[styles.locationText, { color: t.muted }]}>{pin.locationName}</Text>
+        {/* Photo (left) + Location (right) */}
+        {(pin.photoURL || pin.locationName) ? (
+          <View style={styles.mediaRow}>
+            {pin.photoURL && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
+                activeOpacity={0.88}
+              >
+                <Image source={{ uri: pin.photoURL }} style={styles.thumbnail} />
+              </TouchableOpacity>
+            )}
+            {pin.locationName && (
+              <View style={[styles.locationBlock, !pin.photoURL && { paddingLeft: 0 }]}>
+                <Ionicons name="location-outline" size={18} color={t.muted} style={{ marginTop: 1 }} />
+                <Text style={[styles.locationText, { color: t.text }]}>{pin.locationName}</Text>
               </View>
-            : null
-          }
-        </View>
+            )}
+          </View>
+        ) : null}
 
-        <View style={[styles.cardActions, { borderTopColor: t.border }]}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => toggleSave(pin)} activeOpacity={0.7}>
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={17}
-              color={isSaved ? t.accent : t.muted}
-            />
-            <Text style={[styles.actionLabel, { color: isSaved ? t.accent : t.muted }]}>
-              {count > 0 ? count : 'Save'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid, focusComment: true })}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chatbubble-outline" size={16} color={t.muted} />
-            <Text style={[styles.actionLabel, { color: t.muted }]}>Thoughts</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('Map', { pinId: pin.id })}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="map-outline" size={17} color={t.muted} />
-            <Text style={[styles.actionLabel, { color: t.muted }]}>Map</Text>
-          </TouchableOpacity>
+        {/* Note */}
+        {pin.note ? (
+          <Text style={[styles.noteText, { color: t.text }]}>
+            <Text style={{ color: t.muted }}>Notes: </Text>
+            {pin.note}
+          </Text>
+        ) : null}
+
+        {/* Action bar */}
+        <View style={styles.actionsRow}>
+          <View style={styles.actionsLeft}>
+            <TouchableOpacity style={styles.actionIcon} onPress={() => toggleSave(pin)} activeOpacity={0.7}>
+              <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={23} color={isSaved ? '#C0505A' : t.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionIcon}
+              onPress={() => navigation.navigate('PostComments', { pin, userId: user.uid })}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chatbubble-outline" size={22} color={t.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionIcon} activeOpacity={0.7}>
+              <Ionicons name="arrow-redo-outline" size={22} color={t.muted} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.actionsRight}>
+            {count > 0 && (
+              <TouchableOpacity
+                style={[styles.countPill, { backgroundColor: t.accent }]}
+                onPress={() => toggleSave(pin)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.countPillText}>+{count}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => toggleSave(pin)} activeOpacity={0.7}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={23}
+                color={isSaved ? t.accent : t.muted}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -374,7 +410,7 @@ export default function FeedView({ navigation, user, theme }) {
         ListHeaderComponent={ListHeader}
         contentContainerStyle={[styles.list, filteredPins.length === 0 && styles.listEmpty]}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 24 }} />}
+        ItemSeparatorComponent={null}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyGem}>✦</Text>
@@ -466,40 +502,45 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginTop: 4 },
 
   card: {
-    marginHorizontal: 16,
-    borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#1C1714', shadowOpacity: 0.07, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
-  cardPhoto: { width: '100%', aspectRatio: 4 / 3 },
-  cardBody: { padding: 16, gap: 8 },
-  cardAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  authorAvatar: { width: 32, height: 32, borderRadius: 16 },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12,
+  },
+  authorAvatar: { width: 44, height: 44, borderRadius: 22 },
   authorAvatarFallback: {
-    width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
   },
-  authorName: { fontSize: 13, fontWeight: '600' },
-  timeAgo: { fontSize: 11, marginTop: 1 },
-  catBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+  narrativeWrap: { flex: 1 },
+  narrativeLine: { fontSize: 14, lineHeight: 20 },
+  narrativeBold: { fontWeight: '700' },
+  narrativeMuted: { fontWeight: '400' },
+  cardTimestamp: { fontSize: 12, marginTop: 3 },
+  catSticker: {
+    width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
   },
-  catBadgeLabel: { fontSize: 11, fontWeight: '600' },
 
-  pinTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.4, lineHeight: 22 },
-  pinNote: { fontSize: 14, fontStyle: 'italic', lineHeight: 20 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontSize: 12 },
+  mediaRow: { flexDirection: 'row', gap: 12, marginBottom: 10 },
+  thumbnail: { width: 130, height: 110, borderRadius: 10 },
+  locationBlock: {
+    flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: 2,
+  },
+  locationText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '500' },
 
-  cardActions: {
-    flexDirection: 'row', borderTopWidth: 1,
-    paddingVertical: 10, paddingHorizontal: 8,
+  noteText: { fontSize: 14, lineHeight: 20, marginBottom: 10 },
+
+  actionsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginTop: 4,
   },
-  actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 5, paddingVertical: 4,
-  },
-  actionLabel: { fontSize: 12, fontWeight: '500' },
+  actionsLeft: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  actionsRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  actionIcon: { padding: 6 },
+  countPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100 },
+  countPillText: { fontSize: 13, fontWeight: '700', color: '#FAF7F2' },
 
   photoModalBackdrop: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
