@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Modal, Animated, TouchableOpacity, Pressable,
-  TextInput, ScrollView, StyleSheet, Dimensions,
+  TextInput, ScrollView, StyleSheet, Dimensions, Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { MOCK_COLLECTIONS } from '../mockData';
+import { Image } from 'react-native';
+import { MOCK_COLLECTIONS, MOCK_USERS } from '../mockData';
 
 const { width: SW } = Dimensions.get('window');
 const GRID_PAD  = 16;
@@ -78,42 +79,118 @@ function CollectionCard({ item, selected, onPress }) {
   );
 }
 
+const ALL_FRIENDS = Object.values(MOCK_USERS).filter(u => u.uid !== 'guest');
+
 function CreateCollectionForm({ onCancel, onCreate }) {
   const [name, setName] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState(new Set());
   const canCreate = name.trim().length > 0;
+
+  const visibility = selectedFriends.size > 0 ? 'shared' : isPublic ? 'public' : 'private';
+
+  const toggleFriend = (uid) => {
+    setSelectedFriends(prev => {
+      const next = new Set(prev);
+      next.has(uid) ? next.delete(uid) : next.add(uid);
+      return next;
+    });
+  };
+
   return (
     <View style={styles.createForm}>
-      <Text style={styles.createLabel}>Name your collection</Text>
-      <TextInput
-        autoFocus
-        value={name}
-        onChangeText={setName}
-        placeholder="e.g. SF Gems, Study Spots…"
-        placeholderTextColor={MUTED}
-        style={styles.createInput}
-        returnKeyType="done"
-        onSubmitEditing={() => canCreate && onCreate(name.trim())}
-      />
-      <View style={styles.createActions}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.75}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.createBtn, !canCreate && { opacity: 0.38 }]}
-          onPress={() => canCreate && onCreate(name.trim())}
-          activeOpacity={0.82}
-          disabled={!canCreate}
-        >
-          <Text style={styles.createBtnText}>Create</Text>
-        </TouchableOpacity>
+      <View style={styles.createSection}>
+        <Text style={styles.createSectionLabel}>Name</Text>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter collection name"
+          placeholderTextColor={MUTED}
+          style={styles.createInput}
+          returnKeyType="done"
+          onSubmitEditing={() => canCreate && onCreate(name.trim(), visibility)}
+        />
       </View>
+
+      <View style={styles.createSection}>
+        <TouchableOpacity
+          style={styles.optionRow}
+          onPress={() => setPickerOpen(v => !v)}
+          activeOpacity={0.75}
+        >
+          <View style={styles.optionText}>
+            <Text style={styles.optionTitle}>Share with a friend</Text>
+            <Text style={styles.optionSub}>
+              {selectedFriends.size > 0
+                ? `${selectedFriends.size} friend${selectedFriends.size > 1 ? 's' : ''} selected`
+                : 'They can add their favorite posts.'}
+            </Text>
+          </View>
+          <Ionicons
+            name={pickerOpen ? 'chevron-up' : 'chevron-forward'}
+            size={18}
+            color={MUTED}
+          />
+        </TouchableOpacity>
+
+        {pickerOpen && (
+          <View style={styles.friendList}>
+            {ALL_FRIENDS.map(u => {
+              const selected = selectedFriends.has(u.uid);
+              return (
+                <TouchableOpacity
+                  key={u.uid}
+                  style={styles.friendRow}
+                  onPress={() => toggleFriend(u.uid)}
+                  activeOpacity={0.75}
+                >
+                  <Image source={{ uri: u.photoURL }} style={styles.friendAvatar} />
+                  <Text style={styles.friendName}>{u.displayName}</Text>
+                  <View style={[styles.friendCheck, selected && styles.friendCheckSelected]}>
+                    {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.optionDivider} />
+
+        <View style={styles.optionRow}>
+          <View style={styles.optionText}>
+            <Text style={styles.optionTitle}>Make public</Text>
+            <Text style={styles.optionSub}>The collection will be shown on your profile.</Text>
+          </View>
+          <Switch
+            value={isPublic}
+            onValueChange={setIsPublic}
+            trackColor={{ false: 'rgba(28,23,20,0.12)', true: NAVY }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.saveBtn, !canCreate && { opacity: 0.38 }]}
+        onPress={() => canCreate && onCreate(name.trim(), visibility)}
+        activeOpacity={0.82}
+        disabled={!canCreate}
+      >
+        <Text style={styles.saveBtnText}>Save</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.cancelLink} onPress={onCancel} activeOpacity={0.75}>
+        <Text style={styles.cancelText}>Cancel</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export default function SaveToCollectionModal({ visible, pin, onClose, onSave }) {
+export default function SaveToCollectionModal({ visible, pin, onClose, onSave, onCollectionCreated }) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(600)).current;
 
@@ -158,12 +235,12 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave })
     });
   };
 
-  const handleCreate = (name) => {
+  const handleCreate = (name, visibility) => {
     const newColl = {
       id: `coll_${Date.now()}`,
       name,
       count: 0,
-      visibility: 'private',
+      visibility,
     };
     setCollections(prev => [...prev, newColl]);
     setSavedIds(prev => {
@@ -172,6 +249,7 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave })
       onSave?.(pin?.id, [...next]);
       return next;
     });
+    onCollectionCreated?.(newColl);
     showToast(`Saved to ${name}`);
     setIsCreating(false);
   };
@@ -345,24 +423,44 @@ const styles = StyleSheet.create({
   visText: { fontSize: 9, fontWeight: '600', color: MUTED, letterSpacing: 0.2 },
 
   // Create form
-  createForm: { paddingVertical: 8 },
-  createLabel: {
+  createForm: { paddingVertical: 8, gap: 12 },
+  createSection: {
+    backgroundColor: '#F5F5F5', borderRadius: 14, padding: 16,
+  },
+  createSectionLabel: {
     fontSize: 13, fontWeight: '700', color: NAVY, marginBottom: 10,
   },
   createInput: {
-    borderWidth: 1.5, borderColor: 'rgba(28,23,20,0.12)',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: '#1C1714', marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: 'rgba(28,23,20,0.10)',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: '#1C1714',
   },
-  createActions: { flexDirection: 'row', gap: 10 },
-  cancelBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: 'rgba(28,23,20,0.12)',
-    borderRadius: 12, paddingVertical: 13, alignItems: 'center',
+  optionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4,
   },
+  optionText: { flex: 1 },
+  optionTitle: { fontSize: 15, fontWeight: '600', color: '#1C1714', marginBottom: 2 },
+  optionSub: { fontSize: 12, color: MUTED, lineHeight: 16 },
+  optionDivider: { height: 1, backgroundColor: 'rgba(28,23,20,0.07)', marginVertical: 12 },
+  friendList: { marginTop: 10, gap: 4 },
+  friendRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 8, paddingHorizontal: 4,
+  },
+  friendAvatar: { width: 34, height: 34, borderRadius: 17 },
+  friendName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#1C1714' },
+  friendCheck: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 1.5, borderColor: 'rgba(28,23,20,0.20)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  friendCheckSelected: { backgroundColor: NAVY, borderColor: NAVY },
+  saveBtn: {
+    backgroundColor: NAVY,
+    borderRadius: 100, paddingVertical: 15, alignItems: 'center',
+  },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  cancelLink: { alignItems: 'center', paddingVertical: 4 },
   cancelText: { fontSize: 14, fontWeight: '600', color: MUTED },
-  createBtn: {
-    flex: 1, backgroundColor: NAVY,
-    borderRadius: 12, paddingVertical: 13, alignItems: 'center',
-  },
-  createBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });
