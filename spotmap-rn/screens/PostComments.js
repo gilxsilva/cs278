@@ -6,15 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCat, THEMES } from '../constants';
-import { MOCK_COMMENTS, MOCK_USERS } from '../mockData';
+import { MOCK_COMMENTS, MOCK_USERS, SAVER_NAMES } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
-const SAVER_NAMES = {
-  mock_eva:   'Eva',
-  mock_yujen: 'Yujen',
-  mock_alex:  'Alex',
-  guest:      'Demo',
-};
 
 function timeAgo(timestamp) {
   if (!timestamp) return '';

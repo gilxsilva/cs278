@@ -10,11 +10,11 @@ import { MOCK_PINS, MOCK_USERS } from '../mockData';
 
 const HEADER_BG = '#E4EBF5';
 
-const RECENT_SEARCHES = ['Coupa Café', 'study spots', 'Dish Trail', 'hidden gems'];
+const RECENT_SEARCHES = ['Coupa Café', 'Dish Trail sunset', 'Sightglass', 'hidden study spots', 'SF gems'];
 
-const SUGGESTED_UIDS = ['mock_eva', 'mock_yujen', 'mock_alex'];
+const SUGGESTED_UIDS = ['mock_eva', 'mock_priya', 'mock_jordan', 'mock_maya', 'mock_yujen', 'mock_alex'];
 
-const TOP_SPOTS = MOCK_PINS.filter(p => p.saveCount >= 9).slice(0, 4);
+const TOP_SPOTS = MOCK_PINS.filter(p => p.saveCount >= 9).slice(0, 5);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

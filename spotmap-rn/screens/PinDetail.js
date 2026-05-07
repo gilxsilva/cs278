@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCat } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS } from '../mockData';
+import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS } from '../mockData';
 
 const T = {
   bg:       '#FAF7F2',
@@ -34,12 +34,6 @@ function timeAgo(timestamp) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-const SAVER_PHOTOS = {
-  mock_eva:   'https://i.pravatar.cc/150?img=47',
-  mock_yujen: 'https://i.pravatar.cc/150?img=33',
-  mock_alex:  'https://i.pravatar.cc/150?img=15',
-  guest:      'https://i.pravatar.cc/150?img=12',
-};
 
 export default function PinDetail({ navigation, route }) {
   const { pinId, userId, focusComment } = route.params ?? {};

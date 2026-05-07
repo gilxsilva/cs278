@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCat, CATEGORIES, THEMES } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
+import { USE_MOCK_DATA, MOCK_PINS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 function timeAgo(timestamp) {
@@ -25,19 +25,6 @@ function timeAgo(timestamp) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const SAVER_PHOTOS = {
-  mock_eva:   'https://i.pravatar.cc/150?img=47',
-  mock_yujen: 'https://i.pravatar.cc/150?img=33',
-  mock_alex:  'https://i.pravatar.cc/150?img=15',
-  guest:      'https://i.pravatar.cc/150?img=12',
-};
-
-const SAVER_NAMES = {
-  mock_eva:   'Eva',
-  mock_yujen: 'Yujen',
-  mock_alex:  'Alex',
-  guest:      'Demo',
-};
 
 export default function FeedView({ navigation, user, theme }) {
   const [pins, setPins] = useState([]);
