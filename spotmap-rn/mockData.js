@@ -196,3 +196,49 @@ export const MOCK_COLLECTIONS = [
   { id: 'coll_summer', name: 'Summer Gems', count: 4,  visibility: 'shared'  },
   { id: 'coll_saved',  name: 'Saved',       count: 8,  visibility: 'private' },
 ];
+
+export const MOCK_USER_PROFILES = {
+  guest: {
+    bio: 'exploring campus one gem at a time',
+    tasteTags: ['campus walks', 'hidden spots', 'late night eats'],
+    socialProof: 'new to gem',
+    followers: 0,
+    following: 2,
+    collections: [
+      { id: 'coll_saved', name: 'Saved', count: 8, visibility: 'private', icon: 'bookmark-outline', color: '#A98BBE' },
+    ],
+  },
+  mock_eva: {
+    bio: 'finding the best quiet corners on campus',
+    tasteTags: ['quiet study spots', 'coffee runs', 'hidden gems', 'art corners'],
+    socialProof: '3 of your friends follow Eva',
+    followers: 47,
+    following: 31,
+    collections: [
+      { id: 'coll_sf',    name: 'SF Gems',    count: 12, visibility: 'shared',  icon: 'location-outline', color: '#7A9FC2' },
+      { id: 'coll_study', name: 'Study Gems', count: 6,  visibility: 'private', icon: 'book-outline',     color: '#7A9FC2' },
+    ],
+  },
+  mock_yujen: {
+    bio: 'coffee first, then studying',
+    tasteTags: ['coffee runs', 'campus discoveries', 'study spots'],
+    socialProof: 'you both saved Coupa Café',
+    followers: 38,
+    following: 24,
+    collections: [
+      { id: 'coll_summer', name: 'Summer Gems', count: 4, visibility: 'shared',  icon: 'sunny-outline', color: '#C4A882' },
+      { id: 'coll_study',  name: 'Study Gems',  count: 6, visibility: 'private', icon: 'book-outline',  color: '#7A9FC2' },
+    ],
+  },
+  mock_alex: {
+    bio: 'late nights, good food, long trails',
+    tasteTags: ['hidden gems', 'late night eats', 'campus walks', 'food spots'],
+    socialProof: 'followed by Eva and Yujen',
+    followers: 29,
+    following: 19,
+    collections: [
+      { id: 'coll_saved',  name: 'Saved',       count: 8, visibility: 'private', icon: 'bookmark-outline', color: '#A98BBE' },
+      { id: 'coll_summer', name: 'Summer Gems',  count: 4, visibility: 'shared',  icon: 'sunny-outline',    color: '#C4A882' },
+    ],
+  },
+};
