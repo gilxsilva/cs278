@@ -297,45 +297,7 @@ export default function FeedView({ navigation, user, theme }) {
           )}
         </View>
 
-        {searchActive && searchQuery.length > 0 && (() => {
-          const seen = new Set();
-          const users = pins
-            .filter(p => p.authorName?.toLowerCase().includes(searchQuery.toLowerCase()))
-            .filter(p => { if (seen.has(p.authorId)) return false; seen.add(p.authorId); return true; });
-          return (
-            <View style={[styles.searchResults, { backgroundColor: t.bg, borderColor: t.border }]}>
-              {users.length === 0
-                ? <Text style={[styles.searchEmpty, { color: t.muted }]}>No people found</Text>
-                : users.map(p => (
-                    <TouchableOpacity
-                      key={p.authorId}
-                      style={styles.searchResultRow}
-                      onPress={() => {
-                        setSearchActive(false);
-                        setSearchQuery('');
-                        navigation.navigate('Profile', {
-                          user: { uid: p.authorId, displayName: p.authorName, photoURL: p.authorPhoto },
-                          isOwnProfile: p.authorId === user.uid,
-                        });
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      {p.authorPhoto
-                        ? <Image source={{ uri: p.authorPhoto }} style={styles.searchAvatar} />
-                        : <View style={[styles.searchAvatarFallback, { backgroundColor: t.surface2 }]}>
-                            <Ionicons name="person" size={16} color={t.muted} />
-                          </View>
-                      }
-                      <Text style={[styles.searchName, { color: t.text }]}>{p.authorName}</Text>
-                      <Ionicons name="chevron-forward" size={16} color={t.muted} style={{ marginLeft: 'auto' }} />
-                    </TouchableOpacity>
-                  ))
-              }
-            </View>
-          );
-        })()}
-
-        <ScrollView
+        {!searchActive && <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScroll}
@@ -364,8 +326,46 @@ export default function FeedView({ navigation, user, theme }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </ScrollView>}
       </SafeAreaView>
+
+      {searchActive && searchQuery.length > 0 && (() => {
+        const seen = new Set();
+        const users = pins
+          .filter(p => p.authorName?.toLowerCase().includes(searchQuery.toLowerCase()))
+          .filter(p => { if (seen.has(p.authorId)) return false; seen.add(p.authorId); return true; });
+        return (
+          <View style={[styles.searchResults, { backgroundColor: t.bg, borderColor: t.border }]}>
+            {users.length === 0
+              ? <Text style={[styles.searchEmpty, { color: t.muted }]}>No people found</Text>
+              : users.map(p => (
+                  <TouchableOpacity
+                    key={p.authorId}
+                    style={styles.searchResultRow}
+                    onPress={() => {
+                      setSearchActive(false);
+                      setSearchQuery('');
+                      navigation.navigate('Profile', {
+                        user: { uid: p.authorId, displayName: p.authorName, photoURL: p.authorPhoto },
+                        isOwnProfile: p.authorId === user.uid,
+                      });
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    {p.authorPhoto
+                      ? <Image source={{ uri: p.authorPhoto }} style={styles.searchAvatar} />
+                      : <View style={[styles.searchAvatarFallback, { backgroundColor: t.surface2 }]}>
+                          <Ionicons name="person" size={16} color={t.muted} />
+                        </View>
+                    }
+                    <Text style={[styles.searchName, { color: t.text }]}>{p.authorName}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={t.muted} style={{ marginLeft: 'auto' }} />
+                  </TouchableOpacity>
+                ))
+            }
+          </View>
+        );
+      })()}
 
       <FlatList
         data={filteredPins}
@@ -418,7 +418,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15 },
   searchCancel: { fontSize: 15, fontWeight: '600', paddingLeft: 10 },
   searchResults: {
-    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
     borderBottomWidth: 1, paddingVertical: 4,
   },
   searchResultRow: {

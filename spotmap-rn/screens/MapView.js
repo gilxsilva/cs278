@@ -4,6 +4,7 @@ import {
   StyleSheet, Animated,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -126,58 +127,55 @@ export default function MapScreen({ navigation, route, user, theme, toggleTheme 
 
       {/* Top bar */}
       <View style={styles.topBar}>
-        <View style={styles.topRow}>
-          <Text style={[styles.wordmark, { color: '#405973' }]}>gem</Text>
-          <View style={styles.topRight}>
-            <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: t.accent, borderColor: t.accent }]}
-              onPress={() => navigation.navigate('AddPin')}
-            >
-              <Ionicons name="add" size={20} color="#ffffff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.avatarBtn, { backgroundColor: t.surface, borderColor: t.accent }]}
-              onPress={() => navigation.navigate('Profile', { user, isOwnProfile: true })}
-            >
-              {user.photoURL
-                ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
-                : <Text style={styles.avatarFallback}>👤</Text>
-              }
-            </TouchableOpacity>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.topRow}>
+            <Text style={[styles.wordmark, { color: '#405973' }]}>gem</Text>
+            <View style={styles.topRight}>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: t.accent }]}
+                onPress={() => navigation.navigate('AddPin')}
+              >
+                <Ionicons name="add" size={20} color="#ffffff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.avatarBtn, { backgroundColor: t.surface }]}
+                onPress={() => navigation.navigate('Profile', { user, isOwnProfile: true })}
+              >
+                {user.photoURL
+                  ? <Image source={{ uri: user.photoURL }} style={styles.avatarImg} />
+                  : <Ionicons name="person" size={16} color={t.muted} />
+                }
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* Category chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catScroll}
-        >
-          <TouchableOpacity
-            style={[styles.chip, activeCategory === 'all' && styles.chipActive,
-              { backgroundColor: theme === 'dark' ? 'rgba(15,15,15,0.85)' : 'rgba(245,243,238,0.92)',
-                borderColor: activeCategory === 'all' ? t.text : t.border }]}
-            onPress={() => setActiveCategory('all')}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catScroll}
           >
-            <Text style={[styles.chipText, { color: activeCategory === 'all' ? t.text : t.muted }]}>
-              All spots
-            </Text>
-          </TouchableOpacity>
-          {CATEGORIES.map(c => (
             <TouchableOpacity
-              key={c.id}
-              style={[styles.chip,
-                { backgroundColor: theme === 'dark' ? 'rgba(15,15,15,0.85)' : 'rgba(245,243,238,0.92)',
-                  borderColor: activeCategory === c.id ? t.text : t.border }]}
-              onPress={() => setActiveCategory(c.id)}
+              style={[styles.chip, activeCategory === 'all' && { backgroundColor: t.accent }]}
+              onPress={() => setActiveCategory('all')}
             >
-              <Ionicons name={c.icon} size={14} color={activeCategory === c.id ? t.text : c.color} />
-              <Text style={[styles.chipText, { color: activeCategory === c.id ? t.text : t.muted }]}>
-                {c.label}
+              <Text style={[styles.chipText, { color: activeCategory === 'all' ? '#FAF7F2' : t.muted }]}>
+                All
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {CATEGORIES.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.chip, activeCategory === c.id && { backgroundColor: t.accent }]}
+                onPress={() => setActiveCategory(c.id)}
+              >
+                <Ionicons name={c.icon} size={12} color={activeCategory === c.id ? '#FAF7F2' : c.color} />
+                <Text style={[styles.chipText, { color: activeCategory === c.id ? '#FAF7F2' : t.muted }]}>
+                  {c.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
       </View>
 
       {/* Zoom controls */}
@@ -286,18 +284,18 @@ const styles = StyleSheet.create({
 
   topBar: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16, gap: 10,
     backgroundColor: '#ffffff',
     shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 5,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
+  },
   wordmark: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  iconBtnText: { fontSize: 16 },
-  avatarBtn: { width: 38, height: 38, borderRadius: 19, overflow: 'hidden', borderWidth: 0, alignItems: 'center', justifyContent: 'center' },
-  avatarImg: { width: 38, height: 38 },
-  avatarFallback: { fontSize: 16 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarBtn: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  avatarImg: { width: 36, height: 36 },
 
   zoomControls: {
     position: 'absolute', right: 16, bottom: 120,
@@ -307,11 +305,13 @@ const styles = StyleSheet.create({
   zoomBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   zoomDivider: { height: 1 },
 
-  catScroll: { gap: 8, paddingBottom: 4 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },
-  chipActive: {},
-  chipText: { fontSize: 13, fontWeight: '500' },
-  dot: { width: 7, height: 7, borderRadius: 4 },
+  catScroll: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 100, backgroundColor: 'rgba(28,23,20,0.06)',
+  },
+  chipText: { fontSize: 12, fontWeight: '600' },
 
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 44 },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
