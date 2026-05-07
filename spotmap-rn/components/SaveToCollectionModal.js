@@ -12,7 +12,7 @@ const GRID_PAD  = 16;
 const CARD_GAP  = 10;
 const CARD_W    = (SW - GRID_PAD * 2 - CARD_GAP) / 2;
 const CARD_H    = 112;
-const NAVY      = '#2D3F5C';
+const NAVY      = '#0D1F3C';
 const MUTED     = 'rgba(28,23,20,0.38)';
 const BORDER    = 'rgba(28,23,20,0.09)';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -71,8 +71,7 @@ export default function App() {
   if (user === undefined) {
     return (
       <View style={styles.splash}>
-        <Text style={styles.splashStar}>✦</Text>
-        <Text style={styles.splashLogo}>gem</Text>
+        <Image source={require('./assets/logo.png')} style={styles.splashLogo} />
         <Text style={styles.splashSub}>places worth remembering</Text>
       </View>
     );
@@ -122,21 +121,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  splashStar: {
-    fontSize: 24,
-    color: '#2D3F5C',
-    marginBottom: 4,
-  },
   splashLogo: {
-    fontSize: 52,
-    fontWeight: '800',
-    color: '#2D3F5C',
-    letterSpacing: -2,
+    width: 110,
+    height: 110,
+    borderRadius: 26,
+    marginBottom: 20,
   },
   splashSub: {
     fontSize: 14,
     color: 'rgba(28,23,20,0.38)',
-    marginTop: 4,
     letterSpacing: 0.3,
   },
 });

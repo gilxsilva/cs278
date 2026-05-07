@@ -32,7 +32,7 @@ export const THEMES = {
     border:   'rgba(250,247,242,0.08)',
     text:     '#FAF7F2',
     muted:    'rgba(250,247,242,0.40)',
-    accent:   '#A8C4E0',
+    accent:   '#C2E0F7',
   },
   light: {
     bg:       '#FFFFFF',
@@ -41,7 +41,7 @@ export const THEMES = {
     border:   'rgba(0,0,0,0.07)',
     text:     '#1C1714',
     muted:    'rgba(28,23,20,0.38)',
-    accent:   '#2D3F5C',
+    accent:   '#0D1F3C',
   },
 };
 

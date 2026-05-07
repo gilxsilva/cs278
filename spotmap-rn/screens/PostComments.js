@@ -160,7 +160,7 @@ export default function PostComments({ navigation, route, theme }) {
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: t.bg }}>
         <View style={[styles.header, { borderBottomColor: t.border }]}>
-          <Text style={[styles.wordmark, { color: t.accent }]}>gem</Text>
+          <Image source={require('../assets/logo.png')} style={styles.wordmark} />
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.headerBtn, { backgroundColor: t.surface }]}
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1,
   },
-  wordmark: { fontSize: 24, fontWeight: '800', letterSpacing: -0.8 },
+  wordmark: { width: 34, height: 34, borderRadius: 8 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerBtn: {
     width: 34, height: 34, borderRadius: 17,

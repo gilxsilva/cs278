@@ -129,7 +129,7 @@ export default function MapScreen({ navigation, route, user, theme, toggleTheme 
       <View style={styles.topBar}>
         <SafeAreaView edges={['top']}>
           <View style={styles.topRow}>
-            <Text style={[styles.wordmark, { color: '#405973' }]}>gem</Text>
+            <Image source={require('../assets/logo.png')} style={styles.wordmark} />
             <View style={styles.topRight}>
               <TouchableOpacity
                 style={[styles.iconBtn, { backgroundColor: t.accent }]}
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
   },
-  wordmark: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  wordmark: { width: 36, height: 36, borderRadius: 9 },
   topRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarBtn: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

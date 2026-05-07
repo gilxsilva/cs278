@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-const NAVY   = '#2D3F5C';
+const NAVY   = '#0D1F3C';
 const CREAM  = '#FAF7F2';
 const MUTED  = 'rgba(28,23,20,0.38)';
 const BORDER = 'rgba(28,23,20,0.09)';
@@ -40,8 +40,7 @@ export default function Login({ onGuestLogin }) {
 
       {/* ── Brand cluster ──────────────────────────────────── */}
       <View style={styles.brandCluster}>
-        <Text style={styles.gemStar}>✦</Text>
-        <Text style={styles.wordmark}>gem</Text>
+        <Image source={require('../assets/logo.png')} style={styles.logoImage} />
         <View style={styles.rule} />
         <Text style={styles.tagline}>places worth remembering</Text>
       </View>
@@ -117,17 +116,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 36,
   },
-  gemStar: {
-    fontSize: 20,
-    color: NAVY,
-    marginBottom: 6,
-  },
-  wordmark: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: NAVY,
-    letterSpacing: -3.5,
-    lineHeight: 76,
+  logoImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 22,
+    marginBottom: 4,
   },
   rule: {
     width: 32,

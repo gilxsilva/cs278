@@ -293,7 +293,7 @@ export default function FeedView({ navigation, user, theme }) {
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: t.bg }}>
         <View style={styles.header}>
-          <Text style={[styles.wordmark, { color: t.accent }]}>gem</Text>
+          <Image source={require('../assets/logo.png')} style={styles.wordmark} />
           <View style={styles.headerRight}>
             <TouchableOpacity onPress={() => navigation.navigate('Search')}>
               <Ionicons name="search" size={20} color={t.muted} />
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
   },
-  wordmark: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  wordmark: { width: 36, height: 36, borderRadius: 9 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarBtn: {

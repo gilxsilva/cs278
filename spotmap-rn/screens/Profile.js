@@ -11,7 +11,7 @@ import { db, auth } from '../firebase';
 import { getCat, THEMES } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS, MOCK_USER_PROFILES } from '../mockData';
 
-const NAVY = '#2D3F5C';
+const NAVY = '#0D1F3C';
 
 const EMPTY_PROFILE = {
   bio: null, tasteTags: [], socialProof: null,

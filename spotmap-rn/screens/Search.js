@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getCat, THEMES } from '../constants';
 import { MOCK_PINS, MOCK_USERS } from '../mockData';
 
-const HEADER_BG = '#E8EFF7';
+const HEADER_BG = '#E4EBF5';
 
 const RECENT_SEARCHES = ['Coupa Café', 'study spots', 'Dish Trail', 'hidden gems'];
 
@@ -122,13 +122,13 @@ export default function Search({ navigation, theme, user }) {
       {/* ── Header + Search Bar ─────────────────────────────────────────── */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: HEADER_BG }}>
         <View style={styles.header}>
-          <Text style={styles.wordmark}>gem</Text>
+          <Image source={require('../assets/logo.png')} style={styles.wordmark} />
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={() => navigation.goBack()}
             activeOpacity={0.75}
           >
-            <Ionicons name="close" size={20} color="#2D3F5C" />
+            <Ionicons name="close" size={20} color="#0D1F3C" />
           </TouchableOpacity>
         </View>
 
@@ -256,9 +256,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10,
   },
-  wordmark: {
-    fontSize: 26, fontWeight: '800', letterSpacing: -0.8, color: '#2D3F5C',
-  },
+  wordmark: { width: 36, height: 36, borderRadius: 9 },
   closeBtn: {
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(45,63,92,0.10)',
