@@ -1,5 +1,9 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase } from '../supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,12 +31,39 @@ const BENEFITS = [
 ];
 
 export default function Login({ onGuestLogin }) {
-  const handleGoogleLogin = () => {
-    Alert.alert(
-      'Google Sign-In',
-      'Firebase is not configured yet. Use "browse without an account" to explore the app.',
-      [{ text: 'Got it' }]
-    );
+  const handleGoogleLogin = async () => {
+    try {
+      const redirectTo = 'gem://';
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+
+      if (error || !data?.url) {
+        Alert.alert('Sign-in error', error?.message ?? 'Could not start sign-in');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type === 'success') {
+        // Tokens arrive in the URL hash fragment: ...#access_token=...&refresh_token=...
+        const hash   = result.url.split('#')[1] ?? '';
+        const params = Object.fromEntries(
+          hash.split('&').filter(Boolean).map(p => p.split('=').map(decodeURIComponent))
+        );
+        if (params.access_token && params.refresh_token) {
+          await supabase.auth.setSession({
+            access_token:  params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          // onAuthStateChange in App.js picks up the session automatically
+        }
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
   };
 
   return (

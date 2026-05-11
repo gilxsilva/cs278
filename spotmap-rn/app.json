@@ -2,6 +2,7 @@
   "expo": {
     "name": "spot",
     "slug": "spotmap",
+    "scheme": "gem",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -46,6 +47,9 @@
     },
     "updates": {
       "url": "https://u.expo.dev/eec5fe7a-5e64-4070-b195-d3700d7d7d5d"
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

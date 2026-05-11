@@ -5,8 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
+import { supabase } from './supabase';
 import { THEMES } from './constants';
 import LoginScreen from './screens/Login';
 import FeedScreen from './screens/FeedView';
@@ -18,6 +17,17 @@ import PostCommentsScreen from './screens/PostComments';
 import SearchScreen from './screens/Search';
 
 const Stack = createNativeStackNavigator();
+
+// Normalize Supabase user → shape all existing screens expect
+function normalizeUser(u) {
+  if (!u) return null;
+  return {
+    uid:         u.id,
+    displayName: u.user_metadata?.full_name ?? u.email ?? 'User',
+    photoURL:    u.user_metadata?.avatar_url ?? null,
+    email:       u.email,
+  };
+}
 const Tab = createBottomTabNavigator();
 
 function MainTabs({ user, theme, toggleTheme }) {
@@ -61,8 +71,16 @@ export default function App() {
   const [theme, setTheme] = useState('light');
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => setUser(u || null));
-    return unsub;
+    // Hydrate session on launch
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session ? normalizeUser(session.user) : null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session ? normalizeUser(session.user) : null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
