@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -15,10 +16,12 @@ import PinDetailScreen from './screens/PinDetail';
 import ProfileScreen from './screens/Profile';
 import PostCommentsScreen from './screens/PostComments';
 import SearchScreen from './screens/Search';
+import OnboardingScreen from './screens/OnboardingScreen';
+import CommunityGuideScreen from './screens/CommunityGuide';
+import SettingsScreen from './screens/Settings';
 
 const Stack = createNativeStackNavigator();
 
-// Normalize Supabase user → shape all existing screens expect
 function normalizeUser(u) {
   if (!u) return null;
   return {
@@ -28,6 +31,7 @@ function normalizeUser(u) {
     email:       u.email,
   };
 }
+
 const Tab = createBottomTabNavigator();
 
 function MainTabs({ user, theme, toggleTheme }) {
@@ -66,35 +70,72 @@ function MainTabs({ user, theme, toggleTheme }) {
   );
 }
 
-export default function App() {
-  const [user, setUser] = useState(undefined);
-  const [theme, setTheme] = useState('light');
+function SplashView() {
+  return (
+    <View style={styles.splash}>
+      <Image source={require('./assets/logo.png')} style={styles.splashLogo} />
+      <Text style={styles.splashSub}>places worth remembering</Text>
+    </View>
+  );
+}
 
+const ONBOARDING_KEY = uid => `gem_onboarding_v1_${uid}`;
+
+export default function App() {
+  const [user,           setUser]           = useState(undefined); // undefined = hydrating
+  const [theme,          setTheme]          = useState('light');
+  const [onboardingDone, setOnboardingDone] = useState(null);      // null = checking storage
+
+  // ── Auth listener ───────────────────────────────────────────────────────────
   useEffect(() => {
-    // Hydrate session on launch
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session ? normalizeUser(session.user) : null);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session ? normalizeUser(session.user) : null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Onboarding check (runs whenever user identity changes) ─────────────────
+  useEffect(() => {
+    if (user === undefined) return; // still hydrating
+    if (!user || user.uid === 'guest') {
+      // Guests and logged-out state skip onboarding
+      setOnboardingDone(true);
+      return;
+    }
+    setOnboardingDone(null); // reset while checking
+    AsyncStorage.getItem(ONBOARDING_KEY(user.uid))
+      .then(val => setOnboardingDone(val === 'done'))
+      .catch(() => setOnboardingDone(true));
+  }, [user?.uid]);
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
   const handleGuestLogin = () => setUser({ uid: 'guest', displayName: 'Demo User', photoURL: null });
 
-  if (user === undefined) {
+  const completeOnboarding = async () => {
+    if (user?.uid && user.uid !== 'guest') {
+      try { await AsyncStorage.setItem(ONBOARDING_KEY(user.uid), 'done'); } catch {}
+    }
+    setOnboardingDone(true);
+  };
+
+  // ── Loading: hydrating auth or checking storage ─────────────────────────────
+  if (user === undefined || (user && onboardingDone === null)) {
+    return <SplashView />;
+  }
+
+  // ── First-time onboarding (shown before NavigationContainer) ────────────────
+  if (user && !onboardingDone) {
     return (
-      <View style={styles.splash}>
-        <Image source={require('./assets/logo.png')} style={styles.splashLogo} />
-        <Text style={styles.splashSub}>places worth remembering</Text>
-      </View>
+      <SafeAreaProvider>
+        <OnboardingScreen onComplete={completeOnboarding} />
+      </SafeAreaProvider>
     );
   }
 
+  // ── Main app ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -122,6 +163,15 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="Search" options={{ animation: 'slide_from_bottom' }}>
                 {props => <SearchScreen {...props} user={user} theme={theme} />}
+              </Stack.Screen>
+              <Stack.Screen name="CommunityGuide" options={{ animation: 'slide_from_bottom' }}>
+                {props => <CommunityGuideScreen {...props} />}
+              </Stack.Screen>
+              <Stack.Screen name="Settings" options={{ animation: 'slide_from_right' }}>
+                {props => <SettingsScreen {...props} />}
+              </Stack.Screen>
+              <Stack.Screen name="OnboardingReview" options={{ animation: 'slide_from_bottom' }}>
+                {props => <OnboardingScreen onComplete={() => props.navigation.goBack()} />}
               </Stack.Screen>
             </>
           )}

@@ -6,8 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { getCat, THEMES } from '../constants';
 import { USE_MOCK_DATA, MOCK_PINS, MOCK_USER_PROFILES, MOCK_USERS } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
@@ -175,7 +175,7 @@ export default function Profile({ navigation, route, theme }) {
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut(auth) },
+      { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
     ]);
   };
 
@@ -414,9 +414,9 @@ export default function Profile({ navigation, route, theme }) {
           {isOwnProfile
             ? <TouchableOpacity
                 style={[styles.navBtn, { backgroundColor: t.surface }]}
-                onPress={handleSignOut}
+                onPress={() => navigation.navigate('Settings')}
               >
-                <Ionicons name="log-out-outline" size={17} color={t.muted} />
+                <Ionicons name="settings-outline" size={17} color={t.muted} />
               </TouchableOpacity>
             : <View style={{ width: 34 }} />
           }
@@ -585,6 +585,21 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', padding: 40, gap: 10 },
   emptyGem: { fontSize: 36, color: '#C4A882' },
   emptyText: { fontSize: 14, textAlign: 'center' },
+
+  // Settings / Community Guide row
+  settingsSection: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
+  settingsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  settingsIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(122,159,194,0.14)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  settingsRowTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.1 },
+  settingsRowSub:   { fontSize: 12, marginTop: 1 },
 });
 
 const eStyles = StyleSheet.create({
