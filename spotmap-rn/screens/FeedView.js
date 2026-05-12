@@ -5,14 +5,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  collection, onSnapshot, query, orderBy,
-  doc, setDoc, deleteDoc,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { getCat, CATEGORIES, THEMES } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
+import { MOCK_PINS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
+
+// Supports both Supabase storage paths and full external URLs (used in seed data)
+function resolveImageUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return supabase.storage.from('gem-images').getPublicUrl(path).data.publicUrl;
+}
 
 function timeAgo(timestamp) {
   if (!timestamp) return '';
@@ -35,9 +38,10 @@ export default function FeedView({ navigation, user, theme }) {
   const [collectionModal, setCollectionModal] = useState({ visible: false, pin: null });
   const [bookmarked, setBookmarked] = useState({});
   const t = THEMES[theme];
+  const isGuest = user.uid === 'guest';
 
   useEffect(() => {
-    if (USE_MOCK_DATA) {
+    if (isGuest) {
       setPins(MOCK_PINS);
       const initialSaves = {};
       const initialCounts = {};
@@ -49,25 +53,53 @@ export default function FeedView({ navigation, user, theme }) {
       setSaveCounts(initialCounts);
       return;
     }
-    const q = query(collection(db, 'pins'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, snap => {
-      const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setPins(loaded);
-      const counts = {};
-      loaded.forEach(p => { counts[p.id] = p.saveCount ?? 0; });
-      setSaveCounts(counts);
-    }, err => console.error('Feed snapshot error:', err));
-    return unsub;
+    loadFeed();
   }, [user.uid]);
+
+  const loadFeed = async () => {
+    const { data, error } = await supabase.rpc('get_feed', { p_limit: 50, p_offset: 0 });
+    if (error) { console.error('Feed error:', error); return; }
+
+    const mapped = (data ?? []).map(row => ({
+      id:           row.gem_id,
+      title:        row.title,
+      note:         row.caption,
+      category:     row.category,
+      photoURL:     resolveImageUrl(row.images?.[0]?.storage_path),
+      locationName: [row.place_name, row.place_city].filter(Boolean).join(', '),
+      lat:          row.place_lat,
+      lng:          row.place_lng,
+      authorId:     row.author_id,
+      authorName:   row.author_name,
+      authorPhoto:  row.author_avatar,
+      createdAt:    row.created_at,
+      saveCount:    row.save_count,
+      savedBy:      [],
+    }));
+
+    setPins(mapped);
+
+    const newSaves  = {};
+    const newCounts = {};
+    (data ?? []).forEach(row => {
+      newSaves[row.gem_id]  = row.is_saved;
+      newCounts[row.gem_id] = row.save_count;
+    });
+    setSaves(newSaves);
+    setSaveCounts(newCounts);
+  };
 
   const toggleSave = async (pin) => {
     const isSaved = saves[pin.id];
-    const delta = isSaved ? -1 : 1;
     setSaves(prev => ({ ...prev, [pin.id]: !isSaved }));
-    setSaveCounts(prev => ({ ...prev, [pin.id]: (prev[pin.id] ?? 0) + delta }));
-    if (!USE_MOCK_DATA) {
-      const ref = doc(db, 'pins', pin.id, 'saves', user.uid);
-      isSaved ? await deleteDoc(ref) : await setDoc(ref, { savedAt: new Date() });
+    setSaveCounts(prev => ({ ...prev, [pin.id]: (prev[pin.id] ?? 0) + (isSaved ? -1 : 1) }));
+
+    if (!isGuest) {
+      if (isSaved) {
+        await supabase.from('saves').delete().eq('user_id', user.uid).eq('gem_id', pin.id);
+      } else {
+        await supabase.from('saves').upsert({ user_id: user.uid, gem_id: pin.id });
+      }
     }
   };
 
