@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Image, TouchableOpacity, FlatList,
   StyleSheet, Alert, ScrollView, Share, Modal, TextInput, Switch, Pressable,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
 import { supabase } from '../supabase';
 import { getCat, THEMES } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS, MOCK_USER_PROFILES, MOCK_USERS } from '../mockData';
+import { MOCK_PINS, MOCK_USER_PROFILES, MOCK_USERS } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
+
+function resolveImageUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return supabase.storage.from('gem-images').getPublicUrl(path).data.publicUrl;
+}
 
 const NAVY = '#0D1F3C';
 const MUTED_C = 'rgba(28,23,20,0.38)';
@@ -136,31 +141,91 @@ function EditCollectionModal({ collection: coll, onSave, onDelete, onClose }) {
 }
 
 const EMPTY_PROFILE = {
-  bio: null, tasteTags: [], socialProof: null,
-  followers: 0, following: 0, collections: [],
+  display_name: null, handle: null, avatar_url: null,
+  bio: null, taste_tags: [], taste_tagline: null,
+  follower_count: 0, following_count: 0, gem_count: 0,
 };
+
+const isGuest = uid => uid === 'guest';
 
 export default function Profile({ navigation, route, theme }) {
   const { user, isOwnProfile = false } = route.params;
-  const profile = MOCK_USER_PROFILES?.[user.uid] ?? EMPTY_PROFILE;
+  const [profileData, setProfileData] = useState(EMPTY_PROFILE);
   const [pins, setPins] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [userCollections, setUserCollections] = useState(profile.collections ?? []);
+  const [userCollections, setUserCollections] = useState([]);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const t = THEMES[theme];
-  const firstName = user.displayName?.split(' ')[0] ?? 'User';
-  const handle = '@' + (user.displayName?.toLowerCase().replace(/\s/g, '') ?? 'user');
 
-  useEffect(() => {
-    if (USE_MOCK_DATA) {
+  const displayName = profileData.display_name ?? user.displayName ?? 'User';
+  const firstName = displayName.split(' ')[0];
+  const handle = profileData.handle ? `@${profileData.handle}` : `@${user.displayName?.toLowerCase().replace(/\s/g, '') ?? 'user'}`;
+
+  const loadAll = useCallback(async () => {
+    if (isGuest(user.uid)) {
+      const mock = MOCK_USER_PROFILES?.[user.uid];
       setPins(MOCK_PINS.filter(p => p.authorId === user.uid));
+      setUserCollections(mock?.collections ?? []);
       return;
     }
-    getDocs(
-      query(collection(db, 'pins'), where('authorId', '==', user.uid), orderBy('createdAt', 'desc'))
-    ).then(snap => setPins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+    const [profileRes, gemsRes, collectionsRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.uid).single(),
+      supabase
+        .from('gems')
+        .select('*, places(name, city, latitude, longitude), gem_images(storage_path, order_index)')
+        .eq('author_id', user.uid)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('collections')
+        .select('*')
+        .eq('owner_id', user.uid)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (profileRes.data) setProfileData(profileRes.data);
+
+    if (gemsRes.data) {
+      const mapped = gemsRes.data.map(g => {
+        const sortedImages = (g.gem_images ?? []).sort((a, b) => a.order_index - b.order_index);
+        const firstImage = sortedImages[0]?.storage_path ?? null;
+        return {
+          id:           g.id,
+          title:        g.title,
+          note:         g.caption,
+          category:     g.category,
+          locationName: [g.places?.name, g.places?.city].filter(Boolean).join(', '),
+          photoURL:     resolveImageUrl(firstImage),
+          authorId:     g.author_id,
+          latitude:     g.places?.latitude,
+          longitude:    g.places?.longitude,
+        };
+      });
+      setPins(mapped);
+    }
+
+    if (collectionsRes.data) {
+      const mapped = collectionsRes.data.map(c => ({
+        id:         c.id,
+        name:       c.name,
+        icon:       c.icon ?? 'bookmark-outline',
+        color:      c.color ?? '#0D1F3C',
+        count:      c.item_count ?? 0,
+        visibility: c.visibility,
+      }));
+      setUserCollections(mapped);
+    }
   }, [user.uid]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+  }, [loadAll]);
 
   const handleSaveCollection = (updated) => {
     setUserCollections(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -193,16 +258,16 @@ export default function Profile({ navigation, route, theme }) {
     <>
       {/* ── Identity ─────────────────────────────────────────────── */}
       <View style={[styles.hero, { backgroundColor: t.bg }]}>
-        {user.photoURL
-          ? <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+        {(profileData.avatar_url ?? user.photoURL)
+          ? <Image source={{ uri: profileData.avatar_url ?? user.photoURL }} style={styles.avatar} />
           : <View style={[styles.avatarFallback, { backgroundColor: t.surface }]}>
               <Ionicons name="person" size={36} color={t.muted} />
             </View>
         }
-        <Text style={[styles.displayName, { color: t.text }]}>{user.displayName}</Text>
+        <Text style={[styles.displayName, { color: t.text }]}>{displayName}</Text>
         <Text style={[styles.handle, { color: t.muted }]}>{handle}</Text>
-        {profile.bio ? (
-          <Text style={[styles.bio, { color: t.muted }]}>{profile.bio}</Text>
+        {profileData.bio ? (
+          <Text style={[styles.bio, { color: t.muted }]}>{profileData.bio}</Text>
         ) : null}
 
         {/* Stats */}
@@ -213,12 +278,12 @@ export default function Profile({ navigation, route, theme }) {
           </View>
           <View style={[styles.statDivider, { backgroundColor: t.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: t.text }]}>{profile.followers}</Text>
+            <Text style={[styles.statNum, { color: t.text }]}>{profileData.follower_count}</Text>
             <Text style={[styles.statLabel, { color: t.muted }]}>followers</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: t.border }]} />
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: t.text }]}>{profile.following}</Text>
+            <Text style={[styles.statNum, { color: t.text }]}>{profileData.following_count}</Text>
             <Text style={[styles.statLabel, { color: t.muted }]}>following</Text>
           </View>
         </View>
@@ -269,22 +334,22 @@ export default function Profile({ navigation, route, theme }) {
           </View>
         )}
 
-        {/* Social proof */}
-        {profile.socialProof ? (
+        {/* Taste tagline */}
+        {profileData.taste_tagline ? (
           <Text style={[styles.socialProof, { color: t.muted }]}>
-            ✦{'  '}{profile.socialProof}
+            ✦{'  '}{profileData.taste_tagline}
           </Text>
         ) : null}
       </View>
 
       {/* ── Taste tags ───────────────────────────────────────────── */}
-      {profile.tasteTags?.length > 0 ? (
+      {profileData.taste_tags?.length > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tasteScroll}
         >
-          {profile.tasteTags.map(tag => (
+          {profileData.taste_tags.map(tag => (
             <View key={tag} style={[styles.tasteTag, { backgroundColor: t.surface }]}>
               <Text style={[styles.tasteTagText, { color: t.muted }]}>{tag}</Text>
             </View>
@@ -431,6 +496,9 @@ export default function Profile({ navigation, route, theme }) {
         ListEmptyComponent={ListEmpty}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.muted} />
+        }
       />
 
       <SaveToCollectionModal
