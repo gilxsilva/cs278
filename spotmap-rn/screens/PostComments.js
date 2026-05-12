@@ -86,6 +86,25 @@ export default function PostComments({ navigation, route, user, theme }) {
     setLikedComments(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const deleteComment = (commentId) => {
+    Alert.alert('Delete comment', 'Remove this thought?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', commentId)
+            .eq('author_id', userId);
+          if (error) { Alert.alert('Could not delete', error.message); return; }
+          setComments(prev => prev.filter(c => c.id !== commentId));
+        },
+      },
+    ]);
+  };
+
   const submitComment = async () => {
     if (!newComment.trim() || submitting) return;
 
@@ -199,10 +218,18 @@ export default function PostComments({ navigation, route, user, theme }) {
       }
       <View style={styles.commentBody}>
         <View style={styles.commentTopRow}>
-          <Text style={[styles.commentAuthor, { color: t.text }]}>
+          <Text style={[styles.commentAuthor, { color: t.text, flex: 1 }]}>
             {comment.authorName?.split(' ')[0]}
           </Text>
           <Text style={[styles.commentTime, { color: t.muted }]}>{timeAgo(comment.createdAt)}</Text>
+          {comment.authorId === userId && !isGuest && (
+            <TouchableOpacity
+              onPress={() => deleteComment(comment.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="trash-outline" size={13} color={t.muted} />
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={[styles.commentText, { color: t.text }]}>{comment.text}</Text>
         <TouchableOpacity activeOpacity={0.6}>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, FlatList, TouchableOpacity, Image,
   StyleSheet, ScrollView, Pressable,
@@ -91,19 +92,31 @@ export default function FeedView({ navigation, user, theme }) {
     setSaves(newSaves);
     setSaveCounts(newCounts);
 
-    const gemIds = mapped.map(p => p.id);
-    if (gemIds.length > 0) {
-      const { data: commentRows } = await supabase
-        .from('comments')
-        .select('gem_id')
-        .in('gem_id', gemIds);
-      const counts = {};
-      (commentRows ?? []).forEach(r => {
-        counts[r.gem_id] = (counts[r.gem_id] ?? 0) + 1;
-      });
-      setCommentCounts(counts);
-    }
+    await refreshCommentCounts(mapped.map(p => p.id));
   };
+
+  const refreshCommentCounts = useCallback(async (gemIds) => {
+    if (!gemIds.length) return;
+    const { data: commentRows } = await supabase
+      .from('comments')
+      .select('gem_id')
+      .in('gem_id', gemIds);
+    const counts = {};
+    (commentRows ?? []).forEach(r => {
+      counts[r.gem_id] = (counts[r.gem_id] ?? 0) + 1;
+    });
+    setCommentCounts(counts);
+  }, []);
+
+  const pinsRef = useRef([]);
+  useEffect(() => { pinsRef.current = pins; }, [pins]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isGuest || !pinsRef.current.length) return;
+      refreshCommentCounts(pinsRef.current.map(p => p.id));
+    }, [isGuest, refreshCommentCounts])
+  );
 
   const toggleSave = async (pin) => {
     const isSaved = saves[pin.id];

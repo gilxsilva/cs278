@@ -159,6 +159,25 @@ export default function PinDetail({ navigation, route, user }) {
     }
   };
 
+  const deleteComment = (commentId) => {
+    Alert.alert('Delete comment', 'Remove this thought?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', commentId)
+            .eq('author_id', userId);
+          if (error) { Alert.alert('Could not delete', error.message); return; }
+          setComments(prev => prev.filter(c => c.id !== commentId));
+        },
+      },
+    ]);
+  };
+
   const submitComment = async () => {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
@@ -358,13 +377,21 @@ export default function PinDetail({ navigation, route, user }) {
                         isOwnProfile: c.authorId === userId,
                       })}
                       activeOpacity={0.6}
-                      style={{ alignSelf: 'flex-start' }}
+                      style={{ flex: 1, alignSelf: 'flex-start' }}
                     >
                       <Text style={[styles.thoughtAuthor, { color: t.text }]}>
                         {c.authorName?.split(' ')[0]}
                       </Text>
                     </TouchableOpacity>
                     <Text style={[styles.thoughtTime, { color: t.muted }]}>{timeAgo(c.createdAt)}</Text>
+                    {c.authorId === userId && !isGuest && (
+                      <TouchableOpacity
+                        onPress={() => deleteComment(c.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={13} color={t.muted} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <Text style={[styles.thoughtText, { color: t.text }]}>{c.text}</Text>
                 </View>
