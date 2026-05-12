@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Image, TouchableOpacity, FlatList,
   StyleSheet, Alert, ScrollView, Share, Modal, TextInput, Switch, Pressable,
-  RefreshControl,
+  RefreshControl, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
 import { getCat, THEMES } from '../constants';
 import { MOCK_PINS, MOCK_USER_PROFILES, MOCK_USERS } from '../mockData';
@@ -140,6 +141,201 @@ function EditCollectionModal({ collection: coll, onSave, onDelete, onClose }) {
   );
 }
 
+function EditProfileModal({ visible, profileData, userId, onSave, onClose }) {
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [tagline, setTagline] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [newAvatarUri, setNewAvatarUri] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setDisplayName(profileData.display_name ?? '');
+      setBio(profileData.bio ?? '');
+      setTagline(profileData.taste_tagline ?? '');
+      setTags(profileData.taste_tags ?? []);
+      setTagInput('');
+      setNewAvatarUri(null);
+    }
+  }, [visible]);
+
+  const pickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo library access to change your avatar.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setNewAvatarUri(result.assets[0].uri);
+  };
+
+  const addTag = () => {
+    const t = tagInput.trim().toLowerCase();
+    if (t && !tags.includes(t) && tags.length < 8) {
+      setTags(prev => [...prev, t]);
+      setTagInput('');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!displayName.trim()) return;
+    setSaving(true);
+    try {
+      let finalAvatarUrl = profileData.avatar_url;
+
+      if (newAvatarUri) {
+        const ext = newAvatarUri.split('.').pop()?.split('?')[0] ?? 'jpg';
+        const path = `avatars/${userId}.${ext}`;
+        const response = await fetch(newAvatarUri);
+        const blob = await response.blob();
+        const { error: uploadError } = await supabase.storage
+          .from('gem-images')
+          .upload(path, blob, { contentType: `image/${ext}`, upsert: true });
+        if (!uploadError) {
+          finalAvatarUrl = supabase.storage.from('gem-images').getPublicUrl(path).data.publicUrl;
+        }
+      }
+
+      const updates = {
+        display_name:   displayName.trim(),
+        bio:            bio.trim() || null,
+        taste_tagline:  tagline.trim() || null,
+        taste_tags:     tags,
+        avatar_url:     finalAvatarUrl,
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (!error && data) onSave(data);
+    } catch (_) {}
+    setSaving(false);
+  };
+
+  const avatarSource = newAvatarUri ?? profileData.avatar_url ?? null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={epStyles.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={epStyles.kavWrapper}
+      >
+        <View style={epStyles.sheet}>
+          <View style={epStyles.handle} />
+          <Text style={epStyles.title}>Edit profile</Text>
+
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Avatar */}
+            <TouchableOpacity style={epStyles.avatarWrap} onPress={pickAvatar} activeOpacity={0.8}>
+              {avatarSource
+                ? <Image source={{ uri: avatarSource }} style={epStyles.avatar} />
+                : <View style={epStyles.avatarFallback}>
+                    <Ionicons name="person" size={30} color={MUTED_C} />
+                  </View>
+              }
+              <View style={epStyles.avatarBadge}>
+                <Ionicons name="camera-outline" size={13} color="#fff" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Name */}
+            <Text style={epStyles.fieldLabel}>Name</Text>
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              style={epStyles.input}
+              placeholderTextColor={MUTED_C}
+              placeholder="Your name"
+              returnKeyType="next"
+            />
+
+            {/* Bio */}
+            <Text style={epStyles.fieldLabel}>Bio</Text>
+            <TextInput
+              value={bio}
+              onChangeText={setBio}
+              style={[epStyles.input, epStyles.inputMulti]}
+              placeholderTextColor={MUTED_C}
+              placeholder="What are you into?"
+              multiline
+              numberOfLines={3}
+            />
+
+            {/* Taste tagline */}
+            <Text style={epStyles.fieldLabel}>Taste tagline</Text>
+            <TextInput
+              value={tagline}
+              onChangeText={setTagline}
+              style={epStyles.input}
+              placeholderTextColor={MUTED_C}
+              placeholder="quiet corners, strong coffee"
+              returnKeyType="done"
+            />
+
+            {/* Taste tags */}
+            <Text style={epStyles.fieldLabel}>Taste tags <Text style={epStyles.fieldHint}>({tags.length}/8)</Text></Text>
+            {tags.length > 0 && (
+              <View style={epStyles.tagsWrap}>
+                {tags.map(tag => (
+                  <TouchableOpacity
+                    key={tag}
+                    style={epStyles.tagChip}
+                    onPress={() => setTags(prev => prev.filter(t => t !== tag))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={epStyles.tagChipText}>{tag}</Text>
+                    <Ionicons name="close" size={11} color={NAVY} style={{ marginLeft: 3 }} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {tags.length < 8 && (
+              <View style={epStyles.tagInputRow}>
+                <TextInput
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  style={[epStyles.input, { flex: 1, marginBottom: 0 }]}
+                  placeholderTextColor={MUTED_C}
+                  placeholder="Add a tag…"
+                  onSubmitEditing={addTag}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                />
+                <TouchableOpacity style={epStyles.tagAddBtn} onPress={addTag} activeOpacity={0.8}>
+                  <Ionicons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={{ height: 16 }} />
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[epStyles.saveBtn, (!displayName.trim() || saving) && { opacity: 0.4 }]}
+            onPress={handleSave}
+            disabled={!displayName.trim() || saving}
+            activeOpacity={0.85}
+          >
+            <Text style={epStyles.saveBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const EMPTY_PROFILE = {
   display_name: null, handle: null, avatar_url: null,
   bio: null, taste_tags: [], taste_tagline: null,
@@ -156,6 +352,7 @@ export default function Profile({ navigation, route, theme }) {
   const [userCollections, setUserCollections] = useState([]);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const t = THEMES[theme];
 
@@ -296,6 +493,7 @@ export default function Profile({ navigation, route, theme }) {
             <TouchableOpacity
               style={[styles.editBtn, { borderColor: t.border }]}
               activeOpacity={0.8}
+              onPress={() => setEditProfileOpen(true)}
             >
               <Text style={[styles.editBtnText, { color: t.text }]}>Edit profile</Text>
             </TouchableOpacity>
@@ -514,6 +712,14 @@ export default function Profile({ navigation, route, theme }) {
         onDelete={handleDeleteCollection}
         onClose={() => setEditingCollection(null)}
       />
+
+      <EditProfileModal
+        visible={editProfileOpen}
+        profileData={profileData}
+        userId={user.uid}
+        onSave={updated => { setProfileData(updated); setEditProfileOpen(false); }}
+        onClose={() => setEditProfileOpen(false)}
+      />
     </View>
   );
 }
@@ -717,6 +923,78 @@ const eStyles = StyleSheet.create({
   saveBtn: {
     backgroundColor: NAVY, borderRadius: 100,
     paddingVertical: 15, alignItems: 'center',
+  },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+});
+
+const epStyles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+  },
+  kavWrapper: {
+    flex: 1, justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 26, borderTopRightRadius: 26,
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 36,
+    maxHeight: '90%',
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(28,23,20,0.14)',
+    alignSelf: 'center', marginBottom: 12,
+  },
+  title: { fontSize: 18, fontWeight: '800', color: NAVY, letterSpacing: -0.4, marginBottom: 16 },
+
+  // Avatar
+  avatarWrap: { alignSelf: 'center', marginBottom: 20, position: 'relative' },
+  avatar: { width: 80, height: 80, borderRadius: 40 },
+  avatarFallback: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(13,31,60,0.06)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF',
+  },
+
+  // Fields
+  fieldLabel: {
+    fontSize: 12, fontWeight: '700', color: MUTED_C,
+    letterSpacing: 0.5, marginBottom: 6, marginTop: 14,
+  },
+  fieldHint: { fontWeight: '400' },
+  input: {
+    backgroundColor: 'rgba(13,31,60,0.04)',
+    borderWidth: 1, borderColor: 'rgba(28,23,20,0.10)',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: NAVY, marginBottom: 2,
+  },
+  inputMulti: { height: 80, textAlignVertical: 'top' },
+
+  // Tags
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  tagChip: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(13,31,60,0.07)',
+    borderRadius: 100, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  tagChipText: { fontSize: 13, fontWeight: '600', color: NAVY },
+  tagInputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  tagAddBtn: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: NAVY, alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Save
+  saveBtn: {
+    backgroundColor: NAVY, borderRadius: 100,
+    paddingVertical: 15, alignItems: 'center', marginTop: 12,
   },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });
