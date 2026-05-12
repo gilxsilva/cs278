@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, Image, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, StyleSheet,
+  TextInput, KeyboardAvoidingView, Platform, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCat, THEMES } from '../constants';
-import { MOCK_COMMENTS, MOCK_USERS, SAVER_NAMES } from '../mockData';
+import { MOCK_COMMENTS, SAVER_NAMES } from '../mockData';
+import { supabase } from '../supabase';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 
@@ -21,16 +22,20 @@ function timeAgo(timestamp) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function PostComments({ navigation, route, theme }) {
+export default function PostComments({ navigation, route, user, theme }) {
   const { pin, userId } = route.params;
   const t = THEMES[theme ?? 'light'];
   const cat = getCat(pin.category);
+  const isGuest = userId === 'guest' || !userId;
 
-  const [comments, setComments] = useState(MOCK_COMMENTS[pin.id] ?? []);
+  const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [likedComments, setLikedComments] = useState({});
   const [collectionModalVisible, setCollectionModalVisible] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [myProfile, setMyProfile] = useState(null);
+  const flatListRef = useRef(null);
 
   const firstName = pin.authorName?.split(' ')[0] ?? 'Someone';
   const saverNames = (pin.savedBy ?? [])
@@ -39,22 +44,93 @@ export default function PostComments({ navigation, route, theme }) {
     .map(uid => SAVER_NAMES[uid])
     .filter(Boolean);
 
+  useEffect(() => {
+    if (isGuest) {
+      setComments(MOCK_COMMENTS[pin.id] ?? []);
+      return;
+    }
+    loadComments();
+  }, [pin.id]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    supabase.from('profiles').select('display_name, avatar_url').eq('id', userId).single()
+      .then(({ data, error }) => {
+        if (error) console.warn('PostComments profile fetch error:', error.message);
+        if (data) setMyProfile(data);
+      });
+  }, [userId]);
+
+  const loadComments = async () => {
+    const { data: rows, error } = await supabase
+      .from('comments')
+      .select('id, body, created_at, author:profiles!comments_author_id_fkey(id, display_name, avatar_url)')
+      .eq('gem_id', pin.id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('PostComments fetch error:', error.message);
+      return;
+    }
+    setComments((rows ?? []).map(c => ({
+      id:          c.id,
+      text:        c.body,
+      authorId:    c.author?.id,
+      authorName:  c.author?.display_name,
+      authorPhoto: c.author?.avatar_url,
+      createdAt:   c.created_at,
+    })));
+  };
+
   const toggleCommentLike = (id) => {
     setLikedComments(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const submitComment = () => {
-    if (!newComment.trim()) return;
-    const me = MOCK_USERS[userId] ?? MOCK_USERS.guest;
-    setComments(prev => [...prev, {
-      id: `local_${Date.now()}`,
-      text: newComment.trim(),
-      authorId: userId,
-      authorName: me.displayName,
-      authorPhoto: me.photoURL,
-      createdAt: { toDate: () => new Date() },
-    }]);
+  const submitComment = async () => {
+    if (!newComment.trim() || submitting) return;
+
+    if (isGuest) {
+      Alert.alert(
+        'Sign in to comment',
+        'Create an account or sign in to leave your thoughts.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign in', onPress: () => supabase.auth.signOut() },
+        ]
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    const text = newComment.trim();
     setNewComment('');
+
+    const optimistic = {
+      id:          `local_${Date.now()}`,
+      text,
+      authorId:    userId,
+      authorName:  myProfile?.display_name ?? user?.displayName ?? 'You',
+      authorPhoto: myProfile?.avatar_url ?? user?.photoURL ?? null,
+      createdAt:   new Date().toISOString(),
+    };
+    setComments(prev => [...prev, optimistic]);
+
+    const { error } = await supabase
+      .from('comments')
+      .insert({ gem_id: pin.id, author_id: userId, body: text });
+
+    if (error) {
+      console.error('Comment insert error:', error.message);
+      setComments(prev => prev.filter(c => c.id !== optimistic.id));
+      setNewComment(text);
+      Alert.alert('Could not post', error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    await loadComments();
+    setSubmitting(false);
+    setTimeout(() => flatListRef.current?.scrollToEnd?.({ animated: true }), 100);
   };
 
   const PostHeader = () => (
@@ -179,6 +255,7 @@ export default function PostComments({ navigation, route, theme }) {
       </SafeAreaView>
 
       <FlatList
+        ref={flatListRef}
         data={comments}
         keyExtractor={item => item.id}
         renderItem={renderComment}
@@ -209,20 +286,22 @@ export default function PostComments({ navigation, route, theme }) {
             style={[styles.input, { color: t.text }]}
             multiline
             returnKeyType="send"
-            blurOnSubmit
             onSubmitEditing={submitComment}
           />
-          <TouchableOpacity
-            onPress={submitComment}
-            activeOpacity={0.7}
-            disabled={!newComment.trim()}
-          >
-            <Ionicons
-              name="arrow-up-circle"
-              size={28}
-              color={newComment.trim() ? t.accent : t.muted}
-            />
-          </TouchableOpacity>
+          {submitting
+            ? <ActivityIndicator size="small" color={t.muted} style={{ paddingHorizontal: 4 }} />
+            : <TouchableOpacity
+                onPress={submitComment}
+                activeOpacity={0.7}
+                disabled={!newComment.trim()}
+              >
+                <Ionicons
+                  name="arrow-up-circle"
+                  size={28}
+                  color={newComment.trim() ? t.accent : t.muted}
+                />
+              </TouchableOpacity>
+          }
         </View>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -249,7 +328,6 @@ const styles = StyleSheet.create({
 
   list: { paddingBottom: 16 },
 
-  // Post card — mirrors feed card exactly
   postCard: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -277,13 +355,11 @@ const styles = StyleSheet.create({
   locationText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   noteText: { fontSize: 14, lineHeight: 20 },
 
-  // Comments section header
   commentsSectionHeader: {
     paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1,
   },
   commentsSectionTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
 
-  // Comment rows
   commentRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1,
@@ -306,7 +382,6 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 14 },
 
-  // Input
   inputSafe: { borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
@@ -31,10 +31,16 @@ const BENEFITS = [
 ];
 
 export default function Login({ onGuestLogin }) {
-  const handleGoogleLogin = async () => {
-    try {
-      const redirectTo = 'gem://';
+  const [loading, setLoading] = useState(false);
 
+  const handleGoogleLogin = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      // Dismiss any stale browser session before opening a new one
+      WebBrowser.dismissAuthSession();
+
+      const redirectTo = 'gem://';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },
@@ -48,21 +54,26 @@ export default function Login({ onGuestLogin }) {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
       if (result.type === 'success') {
-        // Tokens arrive in the URL hash fragment: ...#access_token=...&refresh_token=...
+        // Implicit flow: tokens arrive in the URL hash fragment
         const hash   = result.url.split('#')[1] ?? '';
         const params = Object.fromEntries(
           hash.split('&').filter(Boolean).map(p => p.split('=').map(decodeURIComponent))
         );
         if (params.access_token && params.refresh_token) {
-          await supabase.auth.setSession({
+          const { error: sessionError } = await supabase.auth.setSession({
             access_token:  params.access_token,
             refresh_token: params.refresh_token,
           });
+          if (sessionError) Alert.alert('Sign-in error', sessionError.message);
           // onAuthStateChange in App.js picks up the session automatically
+        } else {
+          Alert.alert('Sign-in error', 'No tokens received. Please try again.');
         }
       }
     } catch (err) {
       Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,14 +118,21 @@ export default function Login({ onGuestLogin }) {
       {/* ── CTA section ────────────────────────────────────── */}
       <View style={styles.ctaSection}>
         <TouchableOpacity
-          style={styles.googleBtn}
+          style={[styles.googleBtn, loading && { opacity: 0.6 }]}
           onPress={handleGoogleLogin}
           activeOpacity={0.82}
+          disabled={loading}
         >
-          <View style={styles.googleGCircle}>
-            <Text style={styles.googleGText}>G</Text>
-          </View>
-          <Text style={styles.googleBtnText}>Continue with Google</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={NAVY} />
+          ) : (
+            <>
+              <View style={styles.googleGCircle}>
+                <Text style={styles.googleGText}>G</Text>
+              </View>
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity

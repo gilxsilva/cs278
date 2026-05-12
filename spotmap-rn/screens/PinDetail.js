@@ -2,17 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Image, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, TextInput, KeyboardAvoidingView,
-  Platform, Modal, Pressable,
+  Platform, Modal, Pressable, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  doc, getDoc, collection, addDoc, onSnapshot,
-  query, orderBy, serverTimestamp, setDoc, deleteDoc,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { getCat } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS } from '../mockData';
+import { MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS } from '../mockData';
+
+function resolveImageUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return supabase.storage.from('gem-images').getPublicUrl(path).data.publicUrl;
+}
 
 const T = {
   bg:       '#FFFFFF',
@@ -35,8 +37,10 @@ function timeAgo(timestamp) {
 }
 
 
-export default function PinDetail({ navigation, route }) {
-  const { pinId, userId, focusComment } = route.params ?? {};
+export default function PinDetail({ navigation, route, user }) {
+  const { pinId, focusComment } = route.params ?? {};
+  const isGuest = user?.uid === 'guest';
+  const userId = user?.uid;
   const [pin, setPin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState([]);
@@ -45,12 +49,13 @@ export default function PinDetail({ navigation, route }) {
   const [isSaved, setIsSaved] = useState(false);
   const [saveCount, setSaveCount] = useState(0);
   const [profilePhoto, setProfilePhoto] = useState(null);
+  const [myProfile, setMyProfile] = useState(null);
   const commentInputRef = useRef(null);
   const scrollRef = useRef(null);
   const t = T;
 
   useEffect(() => {
-    if (USE_MOCK_DATA) {
+    if (isGuest) {
       const found = MOCK_PINS.find(p => p.id === pinId);
       if (found) {
         setPin(found);
@@ -61,20 +66,62 @@ export default function PinDetail({ navigation, route }) {
       setLoading(false);
       return;
     }
-    getDoc(doc(db, 'pins', pinId)).then(d => {
-      if (d.exists()) {
-        const data = { id: d.id, ...d.data() };
-        setPin(data);
-        setSaveCount(data.saveCount ?? 0);
+    (async () => {
+      const { data: gem, error } = await supabase
+        .from('gems')
+        .select(`
+          id, title, caption, category, save_count, created_at,
+          author:profiles!gems_author_id_fkey(id, display_name, avatar_url),
+          place:places!gems_place_id_fkey(name, city, latitude, longitude),
+          images:gem_images(storage_path, order_index)
+        `)
+        .eq('id', pinId)
+        .single();
+
+      if (error || !gem) {
+        console.error('PinDetail gem fetch error:', error?.message, '| pinId:', pinId);
+        setLoading(false);
+        return;
       }
+
+      const firstImage = (gem.images ?? []).sort((a, b) => a.order_index - b.order_index)[0];
+      setPin({
+        id:           gem.id,
+        title:        gem.title,
+        note:         gem.caption,
+        category:     gem.category,
+        photoURL:     resolveImageUrl(firstImage?.storage_path),
+        locationName: [gem.place?.name, gem.place?.city].filter(Boolean).join(', '),
+        lat:          gem.place?.latitude,
+        lng:          gem.place?.longitude,
+        authorId:     gem.author?.id,
+        authorName:   gem.author?.display_name,
+        authorPhoto:  gem.author?.avatar_url,
+        createdAt:    gem.created_at,
+        saveCount:    gem.save_count,
+        savedBy:      [],
+      });
+      setSaveCount(gem.save_count ?? 0);
+
+      const { data: saveRow } = await supabase
+        .from('saves')
+        .select('gem_id')
+        .eq('gem_id', pinId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      setIsSaved(!!saveRow);
+
+      await loadComments();
+
       setLoading(false);
-    });
-    const commentsUnsub = onSnapshot(
-      query(collection(db, 'pins', pinId, 'comments'), orderBy('createdAt', 'asc')),
-      snap => setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
-    return commentsUnsub;
+    })();
   }, [pinId, userId]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    supabase.from('profiles').select('display_name, avatar_url').eq('id', userId).single()
+      .then(({ data }) => { if (data) setMyProfile(data); });
+  }, [userId]);
 
   useEffect(() => {
     if (focusComment && commentInputRef.current) {
@@ -82,36 +129,74 @@ export default function PinDetail({ navigation, route }) {
     }
   }, [focusComment, loading]);
 
+  const loadComments = async () => {
+    const { data: rows, error } = await supabase
+      .from('comments')
+      .select('id, body, created_at, author:profiles!comments_author_id_fkey(id, display_name, avatar_url)')
+      .eq('gem_id', pinId)
+      .order('created_at', { ascending: true });
+    if (error) console.error('PinDetail loadComments error:', error.message);
+    setComments((rows ?? []).map(c => ({
+      id:          c.id,
+      text:        c.body,
+      authorId:    c.author?.id,
+      authorName:  c.author?.display_name,
+      authorPhoto: c.author?.avatar_url,
+      createdAt:   c.created_at,
+    })));
+  };
+
   const toggleSave = async () => {
     const next = !isSaved;
     setIsSaved(next);
     setSaveCount(c => c + (next ? 1 : -1));
-    if (!USE_MOCK_DATA) {
-      const ref = doc(db, 'pins', pinId, 'saves', userId);
-      next ? await setDoc(ref, { savedAt: new Date() }) : await deleteDoc(ref);
+    if (!isGuest) {
+      if (next) {
+        await supabase.from('saves').upsert({ gem_id: pinId, user_id: userId });
+      } else {
+        await supabase.from('saves').delete().eq('gem_id', pinId).eq('user_id', userId);
+      }
     }
   };
 
   const submitComment = async () => {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
-    const newComment = {
-      id: `local_${Date.now()}`,
-      text: commentText.trim(),
-      authorId: userId ?? 'guest',
-      authorName: 'Demo User',
-      authorPhoto: 'https://i.pravatar.cc/150?img=12',
-      createdAt: { toDate: () => new Date() },
-    };
-    if (USE_MOCK_DATA) {
-      setComments(prev => [...prev, newComment]);
-    } else {
-      await addDoc(collection(db, 'pins', pinId, 'comments'), {
-        ...newComment,
-        createdAt: serverTimestamp(),
-      });
-    }
+    const text = commentText.trim();
     setCommentText('');
+    if (isGuest) {
+      setCommentText(text);
+      setSubmitting(false);
+      Alert.alert(
+        'Sign in to comment',
+        'Create an account or sign in to leave your thoughts.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign in', onPress: () => supabase.auth.signOut() },
+        ]
+      );
+      return;
+    }
+
+    const optimistic = {
+      id:          `local_${Date.now()}`,
+      text,
+      authorId:    userId,
+      authorName:  myProfile?.display_name ?? user?.displayName ?? 'You',
+      authorPhoto: myProfile?.avatar_url ?? user?.photoURL ?? null,
+      createdAt:   new Date().toISOString(),
+    };
+    setComments(prev => [...prev, optimistic]);
+
+    const { error } = await supabase.from('comments').insert({ gem_id: pinId, author_id: userId, body: text });
+    if (error) {
+      setComments(prev => prev.filter(c => c.id !== optimistic.id));
+      setCommentText(text);
+      Alert.alert('Could not post', error.message);
+      setSubmitting(false);
+      return;
+    }
+    await loadComments();
     setSubmitting(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
@@ -139,7 +224,8 @@ export default function PinDetail({ navigation, route }) {
   }
 
   const cat = getCat(pin.category);
-  const date = pin.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const createdAtDate = pin.createdAt?.toDate ? pin.createdAt.toDate() : (pin.createdAt ? new Date(pin.createdAt) : null);
+  const date = createdAtDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const savers = (pin.savedBy ?? []).slice(0, 4);
 
   return (

@@ -5,9 +5,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { supabase } from '../supabase';
 import { CATEGORIES, NEARBY_PLACES } from '../constants';
 
 const T = {
@@ -47,33 +45,58 @@ export default function AddPin({ navigation, user }) {
       Alert.alert('Almost there', 'Add a name, type, and location for your gem.');
       return;
     }
+    if (user?.uid === 'guest') {
+      Alert.alert('Sign in to leave a gem', 'Create an account to share your finds.',
+        [{ text: 'Cancel', style: 'cancel' },
+         { text: 'Sign in', onPress: () => supabase.auth.signOut() }]);
+      return;
+    }
     setLoading(true);
     try {
-      let photoURL = null;
+      // 1. Find or create the place
+      let placeId;
+      const { data: existing } = await supabase
+        .from('places').select('id').eq('name', location.name).maybeSingle();
+      if (existing) {
+        placeId = existing.id;
+      } else {
+        const { data: newPlace, error: placeErr } = await supabase
+          .from('places')
+          .insert({ name: location.name, address: location.address ?? null,
+                    latitude: location.latitude, longitude: location.longitude,
+                    created_by: user.uid })
+          .select('id').single();
+        if (placeErr) throw placeErr;
+        placeId = newPlace.id;
+      }
+
+      // 2. Create the gem
+      const { data: gem, error: gemErr } = await supabase
+        .from('gems')
+        .insert({ author_id: user.uid, place_id: placeId,
+                  title: title.trim(), caption: note.trim() || null,
+                  category, visibility: 'public' })
+        .select('id').single();
+      if (gemErr) throw gemErr;
+
+      // 3. Upload photo if provided
       if (photo) {
         const response = await fetch(photo.uri);
         const blob = await response.blob();
-        const storageRef = ref(storage, `pins/${Date.now()}_${photo.fileName || 'photo.jpg'}`);
-        await uploadBytes(storageRef, blob);
-        photoURL = await getDownloadURL(storageRef);
+        const ext = (photo.uri.split('.').pop()?.split('?')[0] ?? 'jpg').toLowerCase();
+        const storagePath = `gems/${user.uid}/${gem.id}/001.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('gem-images')
+          .upload(storagePath, blob, { contentType: `image/${ext}`, upsert: true });
+        if (!uploadErr) {
+          await supabase.from('gem_images')
+            .insert({ gem_id: gem.id, storage_path: storagePath, order_index: 0 });
+        }
       }
-      await addDoc(collection(db, 'pins'), {
-        title: title.trim(),
-        note: note.trim(),
-        category,
-        photoURL,
-        lat: location.latitude,
-        lng: location.longitude,
-        locationName: location.name,
-        authorId: user.uid,
-        authorName: user.displayName,
-        authorPhoto: user.photoURL,
-        createdAt: serverTimestamp(),
-      });
+
       navigation.goBack();
     } catch (e) {
-      console.error(e);
-      Alert.alert('Something went wrong', 'Try again.');
+      Alert.alert('Something went wrong', e.message ?? 'Try again.');
       setLoading(false);
     }
   };

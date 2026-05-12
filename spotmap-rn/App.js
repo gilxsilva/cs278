@@ -97,6 +97,17 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Sync displayName from profiles table (overrides auth metadata) ──────────
+  useEffect(() => {
+    if (!user || user.uid === 'guest') return;
+    supabase.from('profiles').select('display_name, avatar_url').eq('id', user.uid).single()
+      .then(({ data }) => {
+        if (data) setUser(prev =>
+          prev ? { ...prev, displayName: data.display_name ?? prev.displayName, photoURL: data.avatar_url ?? prev.photoURL } : prev
+        );
+      });
+  }, [user?.uid]);
+
   // ── Onboarding check (runs whenever user identity changes) ─────────────────
   useEffect(() => {
     if (user === undefined) return; // still hydrating
@@ -159,7 +170,7 @@ export default function App() {
                 {props => <ProfileScreen {...props} theme={theme} />}
               </Stack.Screen>
               <Stack.Screen name="PostComments" options={{ animation: 'slide_from_bottom' }}>
-                {props => <PostCommentsScreen {...props} theme={theme} />}
+                {props => <PostCommentsScreen {...props} user={user} theme={theme} />}
               </Stack.Screen>
               <Stack.Screen name="Search" options={{ animation: 'slide_from_bottom' }}>
                 {props => <SearchScreen {...props} user={user} theme={theme} />}

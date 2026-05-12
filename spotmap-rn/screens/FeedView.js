@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, Image,
-  StyleSheet, ScrollView, Modal, Pressable,
+  StyleSheet, ScrollView, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import { getCat, CATEGORIES, THEMES } from '../constants';
-import { MOCK_PINS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
+import { MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 // Supports both Supabase storage paths and full external URLs (used in seed data)
@@ -33,8 +33,8 @@ export default function FeedView({ navigation, user, theme }) {
   const [pins, setPins] = useState([]);
   const [saves, setSaves] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
+  const [commentCounts, setCommentCounts] = useState({});
   const [activeFilter, setActiveFilter] = useState('all');
-  const [profilePhoto, setProfilePhoto] = useState(null);
   const [collectionModal, setCollectionModal] = useState({ visible: false, pin: null });
   const [bookmarked, setBookmarked] = useState({});
   const t = THEMES[theme];
@@ -45,12 +45,15 @@ export default function FeedView({ navigation, user, theme }) {
       setPins(MOCK_PINS);
       const initialSaves = {};
       const initialCounts = {};
+      const initialCommentCounts = {};
       MOCK_PINS.forEach(p => {
         initialSaves[p.id] = (p.savedBy ?? []).includes(user.uid);
         initialCounts[p.id] = p.saveCount ?? 0;
+        initialCommentCounts[p.id] = MOCK_COMMENTS[p.id]?.length ?? 0;
       });
       setSaves(initialSaves);
       setSaveCounts(initialCounts);
+      setCommentCounts(initialCommentCounts);
       return;
     }
     loadFeed();
@@ -87,6 +90,19 @@ export default function FeedView({ navigation, user, theme }) {
     });
     setSaves(newSaves);
     setSaveCounts(newCounts);
+
+    const gemIds = mapped.map(p => p.id);
+    if (gemIds.length > 0) {
+      const { data: commentRows } = await supabase
+        .from('comments')
+        .select('gem_id')
+        .in('gem_id', gemIds);
+      const counts = {};
+      (commentRows ?? []).forEach(r => {
+        counts[r.gem_id] = (counts[r.gem_id] ?? 0) + 1;
+      });
+      setCommentCounts(counts);
+    }
   };
 
   const toggleSave = async (pin) => {
@@ -179,7 +195,10 @@ export default function FeedView({ navigation, user, theme }) {
 
         {/* Header: avatar · narrative · category sticker */}
         <View style={styles.cardHeader}>
-          <Pressable onPress={() => pin.authorPhoto && setProfilePhoto(pin.authorPhoto)}>
+          <Pressable onPress={() => navigation.navigate('Profile', {
+            user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
+            isOwnProfile: pin.authorId === user.uid,
+          })}>
             {pin.authorPhoto
               ? <Image source={{ uri: pin.authorPhoto }} style={styles.authorAvatar} />
               : <View style={[styles.authorAvatarFallback, { backgroundColor: t.surface }]}>
@@ -189,20 +208,24 @@ export default function FeedView({ navigation, user, theme }) {
           </Pressable>
 
           <View style={styles.narrativeWrap}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.narrativeLine, { color: t.text }]}>
-                <Text style={styles.narrativeBold}>{firstName} </Text>
-                {'found '}
-                <Text style={styles.narrativeBold}>{pin.title}</Text>
-                {saverNames.length > 0
-                  ? <Text style={[styles.narrativeMuted, { color: t.muted }]}>{` with ${saverNames.join(' and ')}`}</Text>
-                  : null
-                }
-              </Text>
-            </TouchableOpacity>
+            <Text style={[styles.narrativeLine, { color: t.text }]}>
+              <Text
+                style={styles.narrativeBold}
+                onPress={() => navigation.navigate('Profile', {
+                  user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
+                  isOwnProfile: pin.authorId === user.uid,
+                })}
+              >{firstName} </Text>
+              {'found '}
+              <Text
+                style={styles.narrativeBold}
+                onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
+              >{pin.title}</Text>
+              {saverNames.length > 0
+                ? <Text style={[styles.narrativeMuted, { color: t.muted }]}>{` with ${saverNames.join(' and ')}`}</Text>
+                : null
+              }
+            </Text>
             <Text style={[styles.cardTimestamp, { color: t.muted }]}>{timeAgo(pin.createdAt)}</Text>
           </View>
 
@@ -253,11 +276,16 @@ export default function FeedView({ navigation, user, theme }) {
               <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={23} color={isSaved ? '#C0505A' : t.muted} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionIcon}
+              style={[styles.actionIcon, styles.actionWithCount]}
               onPress={() => navigation.navigate('PostComments', { pin, userId: user.uid })}
               activeOpacity={0.7}
             >
               <Ionicons name="chatbubble-outline" size={22} color={t.muted} />
+              {(commentCounts[pin.id] ?? 0) > 0 && (
+                <Text style={[styles.actionCountText, { color: t.muted }]}>
+                  {commentCounts[pin.id]}
+                </Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionIcon} activeOpacity={0.7}>
               <Ionicons name="arrow-redo-outline" size={22} color={t.muted} />
@@ -391,13 +419,6 @@ export default function FeedView({ navigation, user, theme }) {
         onSave={(pinId, ids) => setBookmarked(prev => ({ ...prev, [pinId]: ids.length > 0 }))}
       />
 
-      <Modal visible={!!profilePhoto} transparent animationType="fade" onRequestClose={() => setProfilePhoto(null)}>
-        <Pressable style={styles.photoModalBackdrop} onPress={() => setProfilePhoto(null)}>
-          {profilePhoto && (
-            <Image source={{ uri: profilePhoto }} style={styles.photoModalImage} />
-          )}
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -492,14 +513,10 @@ const styles = StyleSheet.create({
   actionsLeft: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   actionsRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   actionIcon: { padding: 6 },
+  actionWithCount: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  actionCountText: { fontSize: 13, fontWeight: '600' },
   countPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100 },
   countPillText: { fontSize: 13, fontWeight: '700', color: '#FAF7F2' },
-
-  photoModalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  photoModalImage: { width: 240, height: 240, borderRadius: 120 },
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
   emptyGem: { fontSize: 40, color: '#C4A882', marginBottom: 4 },
