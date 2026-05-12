@@ -571,6 +571,7 @@ export default function Profile({ navigation, route, theme }) {
                 <TouchableOpacity
                   style={[styles.collCard, { backgroundColor: t.surface, borderColor: t.border }]}
                   activeOpacity={0.8}
+                  onPress={() => navigation.navigate('CollectionDetail', { collection: coll, userId: user.uid })}
                 >
                   <View style={[styles.collIconWrap, { backgroundColor: (coll.color ?? NAVY) + '14' }]}>
                     <Ionicons name={coll.icon ?? 'bookmark-outline'} size={15} color={coll.color ?? NAVY} />

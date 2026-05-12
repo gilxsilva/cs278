@@ -428,6 +428,7 @@ export default function FeedView({ navigation, user, theme }) {
       <SaveToCollectionModal
         visible={collectionModal.visible}
         pin={collectionModal.pin}
+        userId={user.uid}
         onClose={() => setCollectionModal(prev => ({ ...prev, visible: false }))}
         onSave={(pinId, ids) => setBookmarked(prev => ({ ...prev, [pinId]: ids.length > 0 }))}
       />

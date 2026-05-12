@@ -1,23 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Modal, Animated, TouchableOpacity, Pressable,
-  TextInput, ScrollView, StyleSheet, Dimensions, Switch,
+  TextInput, ScrollView, StyleSheet, Dimensions, Switch, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'react-native';
-import { MOCK_COLLECTIONS, MOCK_USERS } from '../mockData';
+import { supabase } from '../supabase';
+import { MOCK_COLLECTIONS } from '../mockData';
 
 const { width: SW } = Dimensions.get('window');
-const GRID_PAD  = 16;
+const GRID_PAD = 16;
 const CARD_GAP  = 10;
 const CARD_W    = (SW - GRID_PAD * 2 - CARD_GAP) / 2;
 const CARD_H    = 112;
 const NAVY      = '#0D1F3C';
 const MUTED     = 'rgba(28,23,20,0.38)';
 const BORDER    = 'rgba(28,23,20,0.09)';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function Toast({ message }) {
   if (!message) return null;
@@ -79,24 +77,11 @@ function CollectionCard({ item, selected, onPress }) {
   );
 }
 
-const ALL_FRIENDS = Object.values(MOCK_USERS).filter(u => u.uid !== 'guest');
-
-function CreateCollectionForm({ onCancel, onCreate }) {
+function CreateCollectionForm({ onCancel, onCreate, saving }) {
   const [name, setName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedFriends, setSelectedFriends] = useState(new Set());
   const canCreate = name.trim().length > 0;
-
-  const visibility = selectedFriends.size > 0 ? 'shared' : isPublic ? 'public' : 'private';
-
-  const toggleFriend = (uid) => {
-    setSelectedFriends(prev => {
-      const next = new Set(prev);
-      next.has(uid) ? next.delete(uid) : next.add(uid);
-      return next;
-    });
-  };
+  const visibility = isPublic ? 'public' : 'private';
 
   return (
     <View style={styles.createForm}>
@@ -109,55 +94,12 @@ function CreateCollectionForm({ onCancel, onCreate }) {
           placeholderTextColor={MUTED}
           style={styles.createInput}
           returnKeyType="done"
-          onSubmitEditing={() => canCreate && onCreate(name.trim(), visibility)}
+          onSubmitEditing={() => canCreate && !saving && onCreate(name.trim(), visibility)}
+          autoFocus
         />
       </View>
 
       <View style={styles.createSection}>
-        <TouchableOpacity
-          style={styles.optionRow}
-          onPress={() => setPickerOpen(v => !v)}
-          activeOpacity={0.75}
-        >
-          <View style={styles.optionText}>
-            <Text style={styles.optionTitle}>Share with a friend</Text>
-            <Text style={styles.optionSub}>
-              {selectedFriends.size > 0
-                ? `${selectedFriends.size} friend${selectedFriends.size > 1 ? 's' : ''} selected`
-                : 'They can add their favorite posts.'}
-            </Text>
-          </View>
-          <Ionicons
-            name={pickerOpen ? 'chevron-up' : 'chevron-forward'}
-            size={18}
-            color={MUTED}
-          />
-        </TouchableOpacity>
-
-        {pickerOpen && (
-          <View style={styles.friendList}>
-            {ALL_FRIENDS.map(u => {
-              const selected = selectedFriends.has(u.uid);
-              return (
-                <TouchableOpacity
-                  key={u.uid}
-                  style={styles.friendRow}
-                  onPress={() => toggleFriend(u.uid)}
-                  activeOpacity={0.75}
-                >
-                  <Image source={{ uri: u.photoURL }} style={styles.friendAvatar} />
-                  <Text style={styles.friendName}>{u.displayName}</Text>
-                  <View style={[styles.friendCheck, selected && styles.friendCheckSelected]}>
-                    {selected && <Ionicons name="checkmark" size={12} color="#fff" />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        <View style={styles.optionDivider} />
-
         <View style={styles.optionRow}>
           <View style={styles.optionText}>
             <Text style={styles.optionTitle}>Make public</Text>
@@ -173,12 +115,15 @@ function CreateCollectionForm({ onCancel, onCreate }) {
       </View>
 
       <TouchableOpacity
-        style={[styles.saveBtn, !canCreate && { opacity: 0.38 }]}
-        onPress={() => canCreate && onCreate(name.trim(), visibility)}
+        style={[styles.saveBtn, (!canCreate || saving) && { opacity: 0.38 }]}
+        onPress={() => canCreate && !saving && onCreate(name.trim(), visibility)}
         activeOpacity={0.82}
-        disabled={!canCreate}
+        disabled={!canCreate || saving}
       >
-        <Text style={styles.saveBtnText}>Save</Text>
+        {saving
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={styles.saveBtnText}>Create</Text>
+        }
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.cancelLink} onPress={onCancel} activeOpacity={0.75}>
@@ -188,27 +133,47 @@ function CreateCollectionForm({ onCancel, onCreate }) {
   );
 }
 
-// ─── Main modal ───────────────────────────────────────────────────────────────
-
-export default function SaveToCollectionModal({ visible, pin, onClose, onSave, onCollectionCreated }) {
+export default function SaveToCollectionModal({ visible, pin, userId, onClose, onSave, onCollectionCreated }) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(600)).current;
+  const isGuest = !userId || userId === 'guest';
 
-  const [collections, setCollections] = useState([...MOCK_COLLECTIONS]);
+  const [collections, setCollections] = useState([]);
   const [savedIds, setSavedIds] = useState(new Set());
   const [isCreating, setIsCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
-  // Slide in on open
   useEffect(() => {
-    if (visible) {
-      setIsCreating(false);
-      slideAnim.setValue(600);
-      Animated.spring(slideAnim, {
-        toValue: 0, useNativeDriver: true, bounciness: 2, speed: 16,
-      }).start();
+    if (!visible) return;
+    setIsCreating(false);
+    slideAnim.setValue(600);
+    Animated.spring(slideAnim, {
+      toValue: 0, useNativeDriver: true, bounciness: 2, speed: 16,
+    }).start();
+
+    if (isGuest) {
+      setCollections(MOCK_COLLECTIONS);
+      return;
     }
-  }, [visible]);
+    setLoading(true);
+    supabase
+      .from('collections')
+      .select('id, name, visibility, item_count')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) console.error('Collections fetch error:', error.message);
+        setCollections((data ?? []).map(c => ({
+          id:         c.id,
+          name:       c.name,
+          visibility: c.visibility,
+          count:      c.item_count ?? 0,
+        })));
+        setLoading(false);
+      });
+  }, [visible, userId]);
 
   const handleClose = () => {
     Animated.timing(slideAnim, {
@@ -221,40 +186,76 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave, o
     setTimeout(() => setToast(''), 2400);
   };
 
-  const toggleCollection = (coll) => {
+  const toggleCollection = async (coll) => {
+    const isAdding = !savedIds.has(coll.id);
+
+    // Optimistic UI
     setSavedIds(prev => {
       const next = new Set(prev);
-      if (next.has(coll.id)) {
-        next.delete(coll.id);
-      } else {
-        next.add(coll.id);
-        showToast(`Saved to ${coll.name}`);
-      }
+      isAdding ? next.add(coll.id) : next.delete(coll.id);
       onSave?.(pin?.id, [...next]);
       return next;
     });
+    setCollections(prev => prev.map(c =>
+      c.id === coll.id
+        ? { ...c, count: Math.max(0, c.count + (isAdding ? 1 : -1)) }
+        : c
+    ));
+    if (isAdding) showToast(`Saved to ${coll.name}`);
+
+    if (!isGuest && pin?.id) {
+      if (isAdding) {
+        const { error } = await supabase
+          .from('collection_gems')
+          .upsert({ collection_id: coll.id, gem_id: pin.id });
+        if (error) console.error('Save to collection error:', error.message);
+        else await supabase.from('collections')
+          .update({ item_count: coll.count + 1 }).eq('id', coll.id);
+      } else {
+        const { error } = await supabase
+          .from('collection_gems')
+          .delete()
+          .eq('collection_id', coll.id)
+          .eq('gem_id', pin.id);
+        if (error) console.error('Remove from collection error:', error.message);
+        else await supabase.from('collections')
+          .update({ item_count: Math.max(0, coll.count - 1) }).eq('id', coll.id);
+      }
+    }
   };
 
-  const handleCreate = (name, visibility) => {
-    const newColl = {
-      id: `coll_${Date.now()}`,
-      name,
-      count: 0,
-      visibility,
-    };
-    setCollections(prev => [...prev, newColl]);
-    setSavedIds(prev => {
-      const next = new Set(prev);
-      next.add(newColl.id);
-      onSave?.(pin?.id, [...next]);
-      return next;
-    });
+  const handleCreate = async (name, visibility) => {
+    if (isGuest) {
+      const newColl = { id: `coll_${Date.now()}`, name, count: 0, visibility };
+      setCollections(prev => [...prev, newColl]);
+      setSavedIds(prev => { const next = new Set(prev); next.add(newColl.id); onSave?.(pin?.id, [...next]); return next; });
+      showToast(`Saved to ${name}`);
+      setIsCreating(false);
+      return;
+    }
+
+    setSaving(true);
+    const { data, error } = await supabase
+      .from('collections')
+      .insert({ owner_id: userId, name, visibility })
+      .select('id, name, visibility, item_count')
+      .single();
+    setSaving(false);
+
+    if (error) {
+      console.error('Create collection error:', error.message);
+      showToast('Could not create collection');
+      return;
+    }
+
+    const newColl = { id: data.id, name: data.name, visibility: data.visibility, count: data.item_count ?? 0 };
+    setCollections(prev => [newColl, ...prev]);
+    setSavedIds(prev => { const next = new Set(prev); next.add(newColl.id); onSave?.(pin?.id, [...next]); return next; });
     onCollectionCreated?.(newColl);
     showToast(`Saved to ${name}`);
     setIsCreating(false);
   };
 
-  // Build 2-col grid: "New" card first, then collections
   const cards = [{ __isNew: true }, ...collections];
   const rows  = [];
   for (let i = 0; i < cards.length; i += 2) rows.push(cards.slice(i, i + 2));
@@ -269,7 +270,6 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave, o
       >
         <View style={styles.handle} />
 
-        {/* Header */}
         <View style={styles.sheetHeader}>
           <View style={{ flex: 1 }}>
             <Text style={styles.sheetTitle}>Save to collection</Text>
@@ -286,7 +286,12 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave, o
           <CreateCollectionForm
             onCancel={() => setIsCreating(false)}
             onCreate={handleCreate}
+            saving={saving}
           />
+        ) : loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={NAVY} />
+          </View>
         ) : (
           <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
             {rows.map((row, ri) => (
@@ -301,7 +306,6 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave, o
                         onPress={() => toggleCollection(item)}
                       />
                 )}
-                {/* Fill empty slot in odd-length rows */}
                 {row.length === 1 && <View style={{ width: CARD_W }} />}
               </View>
             ))}
@@ -311,8 +315,6 @@ export default function SaveToCollectionModal({ visible, pin, onClose, onSave, o
     </Modal>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -332,8 +334,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(28,23,20,0.14)',
     alignSelf: 'center', marginBottom: 18,
   },
-
-  // Header
   sheetHeader: {
     flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14,
   },
@@ -348,8 +348,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginLeft: 12,
   },
-
-  // Toast
   toast: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: '#EEF7EE',
@@ -357,12 +355,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   toastText: { fontSize: 13, fontWeight: '600', color: '#2D6035' },
-
-  // Grid
+  loadingWrap: { paddingVertical: 40, alignItems: 'center' },
   grid: { gap: CARD_GAP, paddingBottom: 8 },
   gridRow: { flexDirection: 'row', gap: CARD_GAP },
-
-  // New collection card
   newCard: {
     width: CARD_W, height: CARD_H,
     borderRadius: 16,
@@ -379,8 +374,6 @@ const styles = StyleSheet.create({
   newCardLabel: {
     fontSize: 13, fontWeight: '600', color: NAVY, textAlign: 'center',
   },
-
-  // Collection card — normal
   collCard: {
     width: CARD_W, height: CARD_H,
     borderRadius: 16,
@@ -389,10 +382,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     padding: 12, gap: 6,
   },
-  collCardSelected: {
-    backgroundColor: NAVY,
-    borderColor: NAVY,
-  },
+  collCardSelected: { backgroundColor: NAVY, borderColor: NAVY },
   checkBadge: {
     position: 'absolute', top: 10, right: 10,
     width: 20, height: 20, borderRadius: 10,
@@ -421,41 +411,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.10)',
   },
   visText: { fontSize: 9, fontWeight: '600', color: MUTED, letterSpacing: 0.2 },
-
-  // Create form
   createForm: { paddingVertical: 8, gap: 12 },
-  createSection: {
-    backgroundColor: '#F5F5F5', borderRadius: 14, padding: 16,
-  },
-  createSectionLabel: {
-    fontSize: 13, fontWeight: '700', color: NAVY, marginBottom: 10,
-  },
+  createSection: { backgroundColor: '#F5F5F5', borderRadius: 14, padding: 16 },
+  createSectionLabel: { fontSize: 13, fontWeight: '700', color: NAVY, marginBottom: 10 },
   createInput: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1, borderColor: 'rgba(28,23,20,0.10)',
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: '#1C1714',
   },
-  optionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4,
-  },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   optionText: { flex: 1 },
   optionTitle: { fontSize: 15, fontWeight: '600', color: '#1C1714', marginBottom: 2 },
   optionSub: { fontSize: 12, color: MUTED, lineHeight: 16 },
-  optionDivider: { height: 1, backgroundColor: 'rgba(28,23,20,0.07)', marginVertical: 12 },
-  friendList: { marginTop: 10, gap: 4 },
-  friendRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 8, paddingHorizontal: 4,
-  },
-  friendAvatar: { width: 34, height: 34, borderRadius: 17 },
-  friendName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#1C1714' },
-  friendCheck: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 1.5, borderColor: 'rgba(28,23,20,0.20)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  friendCheckSelected: { backgroundColor: NAVY, borderColor: NAVY },
   saveBtn: {
     backgroundColor: NAVY,
     borderRadius: 100, paddingVertical: 15, alignItems: 'center',

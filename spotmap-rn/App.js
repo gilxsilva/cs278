@@ -19,6 +19,7 @@ import SearchScreen from './screens/Search';
 import OnboardingScreen from './screens/OnboardingScreen';
 import CommunityGuideScreen from './screens/CommunityGuide';
 import SettingsScreen from './screens/Settings';
+import CollectionDetailScreen from './screens/CollectionDetail';
 
 const Stack = createNativeStackNavigator();
 
@@ -180,6 +181,9 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="Settings" options={{ animation: 'slide_from_right' }}>
                 {props => <SettingsScreen {...props} />}
+              </Stack.Screen>
+              <Stack.Screen name="CollectionDetail" options={{ animation: 'slide_from_right' }}>
+                {props => <CollectionDetailScreen {...props} theme={theme} />}
               </Stack.Screen>
               <Stack.Screen name="OnboardingReview" options={{ animation: 'slide_from_bottom' }}>
                 {props => <OnboardingScreen onComplete={() => props.navigation.goBack()} />}

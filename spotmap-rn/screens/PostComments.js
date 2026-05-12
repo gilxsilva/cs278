@@ -299,6 +299,7 @@ export default function PostComments({ navigation, route, user, theme }) {
       <SaveToCollectionModal
         visible={collectionModalVisible}
         pin={pin}
+        userId={userId}
         onClose={() => setCollectionModalVisible(false)}
         onSave={(_, ids) => setBookmarked(ids.length > 0)}
       />
