@@ -159,6 +159,43 @@ export default function PinDetail({ navigation, route, user }) {
     }
   };
 
+  const deletePost = () => {
+    Alert.alert(
+      'Delete gem',
+      'This will permanently remove your gem. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('gems')
+              .delete()
+              .eq('id', pinId)
+              .eq('author_id', userId);
+            if (error) { Alert.alert('Could not delete', error.message); return; }
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
+  const reportPost = () => {
+    const submitReport = async (reason) => {
+      await supabase.from('reports').insert({ reporter_id: userId, gem_id: pinId, reason });
+      Alert.alert('Thanks for reporting', "We'll review this gem shortly.");
+    };
+    Alert.alert('Report gem', 'Why are you reporting this?', [
+      { text: 'Spam', onPress: () => submitReport('spam') },
+      { text: 'Inappropriate content', onPress: () => submitReport('inappropriate') },
+      { text: 'Misinformation', onPress: () => submitReport('misinformation') },
+      { text: 'Other', onPress: () => submitReport('other') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const deleteComment = (commentId) => {
     Alert.alert('Delete comment', 'Remove this thought?', [
       { text: 'Cancel', style: 'cancel' },
@@ -265,6 +302,16 @@ export default function PinDetail({ navigation, route, user }) {
           <TouchableOpacity style={styles.backBtnOverlay} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={20} color="#fff" />
           </TouchableOpacity>
+          {!isGuest && pin.authorId === userId && (
+            <TouchableOpacity style={styles.deleteBtnOverlay} onPress={deletePost}>
+              <Ionicons name="ellipsis-horizontal" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+          {!isGuest && pin.authorId !== userId && (
+            <TouchableOpacity style={styles.deleteBtnOverlay} onPress={reportPost}>
+              <Ionicons name="ellipsis-horizontal" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.body}>
@@ -442,6 +489,12 @@ const styles = StyleSheet.create({
   heroPlaceholder: { width: '100%', aspectRatio: 4 / 3, alignItems: 'center', justifyContent: 'center' },
   backBtnOverlay: {
     position: 'absolute', top: 52, left: 16,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.40)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deleteBtnOverlay: {
+    position: 'absolute', top: 52, right: 16,
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(0,0,0,0.40)',
     alignItems: 'center', justifyContent: 'center',

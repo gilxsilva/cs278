@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, FlatList, TouchableOpacity, Image,
-  StyleSheet, ScrollView, Pressable,
+  StyleSheet, ScrollView, Pressable, RefreshControl, Share, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,7 @@ export default function FeedView({ navigation, user, theme }) {
   const [saves, setSaves] = useState({});
   const [saveCounts, setSaveCounts] = useState({});
   const [commentCounts, setCommentCounts] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [collectionModal, setCollectionModal] = useState({ visible: false, pin: null });
   const [bookmarked, setBookmarked] = useState({});
@@ -60,7 +61,7 @@ export default function FeedView({ navigation, user, theme }) {
     loadFeed();
   }, [user.uid]);
 
-  const loadFeed = async () => {
+  const loadFeed = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_feed', { p_limit: 50, p_offset: 0 });
     if (error) { console.error('Feed error:', error); return; }
 
@@ -93,7 +94,7 @@ export default function FeedView({ navigation, user, theme }) {
     setSaveCounts(newCounts);
 
     await refreshCommentCounts(mapped.map(p => p.id));
-  };
+  }, [refreshCommentCounts]);
 
   const refreshCommentCounts = useCallback(async (gemIds) => {
     if (!gemIds.length) return;
@@ -108,14 +109,11 @@ export default function FeedView({ navigation, user, theme }) {
     setCommentCounts(counts);
   }, []);
 
-  const pinsRef = useRef([]);
-  useEffect(() => { pinsRef.current = pins; }, [pins]);
-
-  useFocusEffect(
+useFocusEffect(
     useCallback(() => {
-      if (isGuest || !pinsRef.current.length) return;
-      refreshCommentCounts(pinsRef.current.map(p => p.id));
-    }, [isGuest, refreshCommentCounts])
+      if (isGuest) return;
+      loadFeed();
+    }, [isGuest, loadFeed])
   );
 
   const toggleSave = async (pin) => {
@@ -130,6 +128,51 @@ export default function FeedView({ navigation, user, theme }) {
         await supabase.from('saves').upsert({ user_id: user.uid, gem_id: pin.id });
       }
     }
+  };
+
+  const deletePin = (pin) => {
+    Alert.alert(
+      'Delete gem',
+      'This will permanently remove your gem. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('gems')
+              .delete()
+              .eq('id', pin.id)
+              .eq('author_id', user.uid);
+            if (error) { Alert.alert('Could not delete', error.message); return; }
+            setPins(prev => prev.filter(p => p.id !== pin.id));
+          },
+        },
+      ]
+    );
+  };
+
+  const reportPin = (pin) => {
+    const submitReport = async (reason) => {
+      await supabase.from('reports').insert({ reporter_id: user.uid, gem_id: pin.id, reason });
+      Alert.alert('Thanks for reporting', "We'll review this gem shortly.");
+    };
+    Alert.alert('Report gem', 'Why are you reporting this?', [
+      { text: 'Spam', onPress: () => submitReport('spam') },
+      { text: 'Inappropriate content', onPress: () => submitReport('inappropriate') },
+      { text: 'Misinformation', onPress: () => submitReport('misinformation') },
+      { text: 'Other', onPress: () => submitReport('other') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const sharePin = async (pin) => {
+    const location = pin.locationName ? ` · ${pin.locationName}` : '';
+    await Share.share({
+      message: `Check out "${pin.title}"${location} on SpotMap`,
+      title: pin.title,
+    });
   };
 
   const filteredPins = activeFilter === 'all'
@@ -242,16 +285,28 @@ export default function FeedView({ navigation, user, theme }) {
             <Text style={[styles.cardTimestamp, { color: t.muted }]}>{timeAgo(pin.createdAt)}</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.catSticker, { backgroundColor: cat.color + '20' }]}
-            onPress={() => navigation.navigate('Profile', {
-              user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
-              isOwnProfile: pin.authorId === user.uid,
-            })}
-            activeOpacity={0.75}
-          >
-            <Ionicons name={cat.icon} size={16} color={cat.color} />
-          </TouchableOpacity>
+          <View style={styles.cardHeaderRight}>
+            <TouchableOpacity
+              style={[styles.catSticker, { backgroundColor: cat.color + '20' }]}
+              onPress={() => navigation.navigate('Profile', {
+                user: { uid: pin.authorId, displayName: pin.authorName, photoURL: pin.authorPhoto },
+                isOwnProfile: pin.authorId === user.uid,
+              })}
+              activeOpacity={0.75}
+            >
+              <Ionicons name={cat.icon} size={16} color={cat.color} />
+            </TouchableOpacity>
+            {!isGuest && pin.authorId === user.uid && (
+              <TouchableOpacity onPress={() => deletePin(pin)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="ellipsis-horizontal" size={18} color={t.muted} />
+              </TouchableOpacity>
+            )}
+            {!isGuest && pin.authorId !== user.uid && (
+              <TouchableOpacity onPress={() => reportPin(pin)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="ellipsis-horizontal" size={18} color={t.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Photo (left) + Location (right) */}
@@ -300,7 +355,7 @@ export default function FeedView({ navigation, user, theme }) {
                 </Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionIcon} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionIcon} activeOpacity={0.7} onPress={() => sharePin(pin)}>
               <Ionicons name="arrow-redo-outline" size={22} color={t.muted} />
             </TouchableOpacity>
           </View>
@@ -355,6 +410,9 @@ export default function FeedView({ navigation, user, theme }) {
         <View style={styles.header}>
           <Image source={require('../assets/logo.png')} style={styles.wordmark} />
           <View style={styles.headerRight}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://forms.gle/rH3ZF466XyrPgcA26')}>
+              <Ionicons name="chatbox-ellipses-outline" size={20} color={t.muted} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Search')}>
               <Ionicons name="search" size={20} color={t.muted} />
             </TouchableOpacity>
@@ -416,6 +474,13 @@ export default function FeedView({ navigation, user, theme }) {
         contentContainerStyle={[styles.list, filteredPins.length === 0 && styles.listEmpty]}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={null}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => { setRefreshing(true); await loadFeed(); setRefreshing(false); }}
+            tintColor={t.muted}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyGem}>✦</Text>
@@ -498,6 +563,7 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12,
   },
+  cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   authorAvatar: { width: 44, height: 44, borderRadius: 22 },
   authorAvatarFallback: {
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',

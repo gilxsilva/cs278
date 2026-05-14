@@ -6,12 +6,46 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, MAP_STYLES_LIGHT, THEMES } from '../constants';
-import { USE_MOCK_DATA, MOCK_PINS } from '../mockData';
+import { MOCK_PINS } from '../mockData';
+
+function resolveImageUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return supabase.storage.from('gem-images').getPublicUrl(path).data.publicUrl;
+}
 
 const PREVIEW_H = 200;
+
+const PinMarker = React.memo(({ pin, isSelected, onPress }) => {
+  const c = getCat(pin.category);
+  const [tracksViewChanges, setTracksViewChanges] = useState(false);
+
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const t = setTimeout(() => setTracksViewChanges(false), 500);
+    return () => clearTimeout(t);
+  }, [isSelected]);
+
+  return (
+    <Marker
+      coordinate={{ latitude: pin.lat, longitude: pin.lng }}
+      tracksViewChanges={tracksViewChanges}
+      anchor={{ x: 0.5, y: 0.5 }}
+      onPress={onPress}
+    >
+      <View pointerEvents="none" style={[styles.pinOuter, { backgroundColor: c.base + '20' }]}>
+        <View style={[
+          styles.pinInner,
+          { backgroundColor: isSelected ? c.base : '#fff', borderColor: c.base + '80' },
+        ]}>
+          <Ionicons name={c.icon} size={14} color={isSelected ? '#fff' : c.base} />
+        </View>
+      </View>
+    </Marker>
+  );
+});
 
 export default function MapScreen({ navigation, route, user, theme, toggleTheme }) {
   const [pins, setPins] = useState([]);
@@ -27,15 +61,29 @@ export default function MapScreen({ navigation, route, user, theme, toggleTheme 
   const t = THEMES[theme];
 
   useEffect(() => {
-    if (USE_MOCK_DATA) {
-      setPins(MOCK_PINS);
-      return;
-    }
-    const q = query(collection(db, 'pins'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, snap => {
-      setPins(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, err => console.error('Map snapshot error:', err));
-  }, []);
+    const isGuest = user?.uid === 'guest';
+    if (isGuest) { setPins(MOCK_PINS); return; }
+
+    supabase.rpc('get_feed', { p_limit: 100, p_offset: 0 }).then(({ data, error }) => {
+      if (error) { console.error('Map feed error:', error); return; }
+      setPins((data ?? [])
+        .filter(row => row.place_lat && row.place_lng)
+        .map(row => ({
+          id:          row.gem_id,
+          title:       row.title,
+          note:        row.caption,
+          category:    row.category,
+          photoURL:    resolveImageUrl(row.images?.[0]?.storage_path),
+          locationName:[row.place_name, row.place_city].filter(Boolean).join(', '),
+          lat:         row.place_lat,
+          lng:         row.place_lng,
+          authorId:    row.author_id,
+          authorName:  row.author_name,
+          authorPhoto: row.author_avatar,
+        }))
+      );
+    });
+  }, [user?.uid]);
 
   const zoomIn = () => {
     const r = regionRef.current;
@@ -91,38 +139,20 @@ export default function MapScreen({ navigation, route, user, theme, toggleTheme 
         initialRegion={regionRef.current}
         userInterfaceStyle={theme}
         customMapStyle={theme === 'dark' ? MAP_STYLES_DARK : MAP_STYLES_LIGHT}
-        onPress={() => setSelectedPin(null)}
+        onPress={(e) => { if (e.nativeEvent.action === 'press') setSelectedPin(null); }}
         onRegionChangeComplete={r => { regionRef.current = r; }}
         showsUserLocation
         showsCompass={false}
         toolbarEnabled={false}
       >
-        {filtered.map(pin => {
-          const c = getCat(pin.category);
-          const isSelected = selectedPin?.id === pin.id;
-          return (
-            <Marker
-              key={pin.id}
-              coordinate={{ latitude: pin.lat, longitude: pin.lng }}
-              tracksViewChanges={isSelected}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <TouchableOpacity
-                onPress={() => handleMarkerPress(pin)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.pinOuter, { backgroundColor: c.base + '20' }]}>
-                  <View style={[
-                    styles.pinInner,
-                    { backgroundColor: isSelected ? c.base : '#fff', borderColor: c.base + '80' }
-                  ]}>
-                    <Ionicons name={c.icon} size={14} color={isSelected ? '#fff' : c.base} />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Marker>
-          );
-        })}
+        {filtered.map(pin => (
+          <PinMarker
+            key={pin.id}
+            pin={pin}
+            isSelected={selectedPin?.id === pin.id}
+            onPress={() => handleMarkerPress(pin)}
+          />
+        ))}
       </MapView>
 
       {/* Top bar */}
