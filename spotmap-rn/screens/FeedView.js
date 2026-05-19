@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import { getCat, CATEGORIES, THEMES } from '../constants';
-import { MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS, SAVER_NAMES } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 // Supports both Supabase storage paths and full external URLs (used in seed data)
@@ -43,27 +42,13 @@ export default function FeedView({ navigation, user, theme }) {
   const isGuest = user.uid === 'guest';
 
   useEffect(() => {
-    if (isGuest) {
-      setPins(MOCK_PINS);
-      const initialSaves = {};
-      const initialCounts = {};
-      const initialCommentCounts = {};
-      MOCK_PINS.forEach(p => {
-        initialSaves[p.id] = (p.savedBy ?? []).includes(user.uid);
-        initialCounts[p.id] = p.saveCount ?? 0;
-        initialCommentCounts[p.id] = MOCK_COMMENTS[p.id]?.length ?? 0;
-      });
-      setSaves(initialSaves);
-      setSaveCounts(initialCounts);
-      setCommentCounts(initialCommentCounts);
-      return;
-    }
+    if (isGuest) return;
     loadFeed();
   }, [user.uid]);
 
   const loadFeed = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_feed', { p_limit: 50, p_offset: 0 });
-    if (error) { console.error('Feed error:', error); return; }
+    if (error) { console.error('Feed error:', error.message, error.details, error.hint); return; }
 
     const mapped = (data ?? []).map(row => ({
       id:           row.gem_id,
@@ -184,23 +169,6 @@ useFocusEffect(
     .slice(0, 5)
     .filter(p => (saveCounts[p.id] ?? 0) > 0);
 
-  const SaverAvatars = ({ pin }) => {
-    const savers = (pin.savedBy ?? []).slice(0, 3);
-    if (savers.length === 0) return null;
-    return (
-      <View style={styles.saverAvatars}>
-        {savers.map((uid, i) => (
-          SAVER_PHOTOS[uid]
-            ? <Image
-                key={uid}
-                source={{ uri: SAVER_PHOTOS[uid] }}
-                style={[styles.saverAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 3 - i }]}
-              />
-            : null
-        ))}
-      </View>
-    );
-  };
 
   const renderTrendingGem = (pin) => {
     const cat = getCat(pin.category);
@@ -225,7 +193,6 @@ useFocusEffect(
         <View style={styles.trendCardBody}>
           <Text style={[styles.trendCardTitle, { color: t.text }]} numberOfLines={1}>{pin.title}</Text>
           <View style={styles.trendCardFooter}>
-            <SaverAvatars pin={pin} />
             <Text style={[styles.trendCardCount, { color: t.muted }]}>
               {saveCounts[pin.id]} saved
             </Text>
@@ -240,11 +207,6 @@ useFocusEffect(
     const isSaved = saves[pin.id] ?? false;
     const count = saveCounts[pin.id] ?? 0;
     const firstName = pin.authorName?.split(' ')[0] ?? 'Someone';
-    const saverNames = (pin.savedBy ?? [])
-      .filter(uid => uid !== pin.authorId)
-      .slice(0, 2)
-      .map(uid => SAVER_NAMES[uid])
-      .filter(Boolean);
 
     return (
       <View style={[styles.card, { backgroundColor: t.bg, borderBottomColor: t.border }]}>
@@ -277,10 +239,6 @@ useFocusEffect(
                 style={styles.narrativeBold}
                 onPress={() => navigation.navigate('PinDetail', { pinId: pin.id, userId: user.uid })}
               >{pin.title}</Text>
-              {saverNames.length > 0
-                ? <Text style={[styles.narrativeMuted, { color: t.muted }]}>{` with ${saverNames.join(' and ')}`}</Text>
-                : null
-              }
             </Text>
             <Text style={[styles.cardTimestamp, { color: t.muted }]}>{timeAgo(pin.createdAt)}</Text>
           </View>

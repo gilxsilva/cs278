@@ -6,7 +6,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
-import { MOCK_COLLECTIONS } from '../mockData';
 
 const { width: SW } = Dimensions.get('window');
 const GRID_PAD = 16;
@@ -154,7 +153,7 @@ export default function SaveToCollectionModal({ visible, pin, userId, onClose, o
     }).start();
 
     if (isGuest) {
-      setCollections(MOCK_COLLECTIONS);
+      setCollections([]);
       return;
     }
     setLoading(true);

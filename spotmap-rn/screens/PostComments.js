@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCat, THEMES } from '../constants';
-import { MOCK_COMMENTS, SAVER_NAMES } from '../mockData';
 import { supabase } from '../supabase';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
@@ -38,17 +37,8 @@ export default function PostComments({ navigation, route, user, theme }) {
   const flatListRef = useRef(null);
 
   const firstName = pin.authorName?.split(' ')[0] ?? 'Someone';
-  const saverNames = (pin.savedBy ?? [])
-    .filter(uid => uid !== pin.authorId)
-    .slice(0, 2)
-    .map(uid => SAVER_NAMES[uid])
-    .filter(Boolean);
-
   useEffect(() => {
-    if (isGuest) {
-      setComments(MOCK_COMMENTS[pin.id] ?? []);
-      return;
-    }
+    if (isGuest) return;
     loadComments();
   }, [pin.id]);
 

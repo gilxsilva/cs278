@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import { CATEGORIES, getCat, STANFORD, MAP_STYLES_DARK, MAP_STYLES_LIGHT, THEMES } from '../constants';
-import { MOCK_PINS } from '../mockData';
 
 function resolveImageUrl(path) {
   if (!path) return null;
@@ -62,7 +61,7 @@ export default function MapScreen({ navigation, route, user, theme, toggleTheme 
 
   useEffect(() => {
     const isGuest = user?.uid === 'guest';
-    if (isGuest) { setPins(MOCK_PINS); return; }
+    if (isGuest) { setPins([]); return; }
 
     supabase.rpc('get_feed', { p_limit: 100, p_offset: 0 }).then(({ data, error }) => {
       if (error) { console.error('Map feed error:', error); return; }

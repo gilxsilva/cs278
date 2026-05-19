@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 import { getCat } from '../constants';
-import { MOCK_PINS, MOCK_COMMENTS, SAVER_PHOTOS } from '../mockData';
 
 function resolveImageUrl(path) {
   if (!path) return null;
@@ -56,13 +55,6 @@ export default function PinDetail({ navigation, route, user }) {
 
   useEffect(() => {
     if (isGuest) {
-      const found = MOCK_PINS.find(p => p.id === pinId);
-      if (found) {
-        setPin(found);
-        setIsSaved((found.savedBy ?? []).includes(userId ?? 'guest'));
-        setSaveCount(found.saveCount ?? 0);
-      }
-      setComments(MOCK_COMMENTS[pinId] ?? []);
       setLoading(false);
       return;
     }
@@ -282,7 +274,6 @@ export default function PinDetail({ navigation, route, user }) {
   const cat = getCat(pin.category);
   const createdAtDate = pin.createdAt?.toDate ? pin.createdAt.toDate() : (pin.createdAt ? new Date(pin.createdAt) : null);
   const date = createdAtDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const savers = (pin.savedBy ?? []).slice(0, 4);
 
   return (
     <KeyboardAvoidingView
@@ -373,25 +364,6 @@ export default function PinDetail({ navigation, route, user }) {
             : null
           }
 
-          {savers.length > 0 && (
-            <View style={[styles.savedByRow, { backgroundColor: t.surface }]}>
-              <View style={styles.savedByAvatars}>
-                {savers.map((uid, i) => (
-                  SAVER_PHOTOS[uid]
-                    ? <Pressable key={uid} onPress={() => setProfilePhoto(SAVER_PHOTOS[uid])}>
-                        <Image
-                          source={{ uri: SAVER_PHOTOS[uid] }}
-                          style={[styles.savedByAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 4 - i }]}
-                        />
-                      </Pressable>
-                    : null
-                ))}
-              </View>
-              <Text style={[styles.savedByText, { color: t.muted }]}>
-                {saveCount === 1 ? '1 person saved this' : `${saveCount} people saved this`}
-              </Text>
-            </View>
-          )}
 
           <View style={styles.thoughtsSection}>
             <Text style={[styles.thoughtsTitle, { color: t.text }]}>

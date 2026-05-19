@@ -9,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
 import { getCat, THEMES } from '../constants';
-import { MOCK_PINS, MOCK_USER_PROFILES, MOCK_USERS } from '../mockData';
 import SaveToCollectionModal from '../components/SaveToCollectionModal';
 
 function resolveImageUrl(path) {
@@ -21,32 +20,18 @@ function resolveImageUrl(path) {
 const NAVY = '#0D1F3C';
 const MUTED_C = 'rgba(28,23,20,0.38)';
 
-const ALL_FRIENDS = Object.values(MOCK_USERS).filter(u => u.uid !== 'guest');
 
 function EditCollectionModal({ collection: coll, onSave, onDelete, onClose }) {
   const [name, setName] = useState(coll?.name ?? '');
   const [isPublic, setIsPublic] = useState(coll?.visibility === 'public');
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedFriends, setSelectedFriends] = useState(new Set(coll?.sharedWith ?? []));
-
   useEffect(() => {
     if (coll) {
       setName(coll.name);
       setIsPublic(coll.visibility === 'public');
-      setSelectedFriends(new Set(coll.sharedWith ?? []));
-      setPickerOpen(false);
     }
   }, [coll?.id]);
 
-  const visibility = selectedFriends.size > 0 ? 'shared' : isPublic ? 'public' : 'private';
-
-  const toggleFriend = uid => {
-    setSelectedFriends(prev => {
-      const next = new Set(prev);
-      next.has(uid) ? next.delete(uid) : next.add(uid);
-      return next;
-    });
-  };
+  const visibility = isPublic ? 'public' : 'private';
 
   const handleDelete = () => {
     Alert.alert(
@@ -78,35 +63,6 @@ function EditCollectionModal({ collection: coll, onSave, onDelete, onClose }) {
         </View>
 
         <View style={eStyles.section}>
-          <TouchableOpacity style={eStyles.optionRow} onPress={() => setPickerOpen(v => !v)} activeOpacity={0.75}>
-            <View style={{ flex: 1 }}>
-              <Text style={eStyles.optionTitle}>Share with a friend</Text>
-              <Text style={eStyles.optionSub}>
-                {selectedFriends.size > 0
-                  ? `${selectedFriends.size} friend${selectedFriends.size > 1 ? 's' : ''} selected`
-                  : 'They can add their favourite posts.'}
-              </Text>
-            </View>
-            <Ionicons name={pickerOpen ? 'chevron-up' : 'chevron-forward'} size={18} color={MUTED_C} />
-          </TouchableOpacity>
-
-          {pickerOpen && (
-            <View style={eStyles.friendList}>
-              {ALL_FRIENDS.map(u => {
-                const sel = selectedFriends.has(u.uid);
-                return (
-                  <TouchableOpacity key={u.uid} style={eStyles.friendRow} onPress={() => toggleFriend(u.uid)} activeOpacity={0.75}>
-                    <Image source={{ uri: u.photoURL }} style={eStyles.friendAvatar} />
-                    <Text style={eStyles.friendName}>{u.displayName}</Text>
-                    <View style={[eStyles.friendCheck, sel && eStyles.friendCheckSel]}>
-                      {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
           <View style={eStyles.divider} />
 
           <View style={eStyles.optionRow}>
@@ -349,6 +305,7 @@ export default function Profile({ navigation, route, theme }) {
   const [profileData, setProfileData] = useState(EMPTY_PROFILE);
   const [pins, setPins] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [viewerId, setViewerId] = useState(null);
   const [userCollections, setUserCollections] = useState([]);
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState(null);
@@ -362,9 +319,8 @@ export default function Profile({ navigation, route, theme }) {
 
   const loadAll = useCallback(async () => {
     if (isGuest(user.uid)) {
-      const mock = MOCK_USER_PROFILES?.[user.uid];
-      setPins(MOCK_PINS.filter(p => p.authorId === user.uid));
-      setUserCollections(mock?.collections ?? []);
+      setPins([]);
+      setUserCollections([]);
       return;
     }
 
@@ -414,9 +370,35 @@ export default function Profile({ navigation, route, theme }) {
       }));
       setUserCollections(mapped);
     }
-  }, [user.uid]);
+
+    if (!isOwnProfile && viewerId && viewerId !== user.uid) {
+      const { data: followRow } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', viewerId)
+        .eq('following_id', user.uid)
+        .maybeSingle();
+      setIsFollowing(!!followRow);
+    }
+  }, [user.uid, isOwnProfile, viewerId]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user: u } }) => setViewerId(u?.id ?? null));
+  }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  const toggleFollow = async () => {
+    if (!viewerId || viewerId === user.uid) return;
+    const next = !isFollowing;
+    setIsFollowing(next);
+    setProfileData(prev => ({ ...prev, follower_count: Math.max(0, (prev.follower_count ?? 0) + (next ? 1 : -1)) }));
+    if (next) {
+      await supabase.from('follows').insert({ follower_id: viewerId, following_id: user.uid });
+    } else {
+      await supabase.from('follows').delete().eq('follower_id', viewerId).eq('following_id', user.uid);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -512,7 +494,7 @@ export default function Profile({ navigation, route, theme }) {
                 styles.followBtn,
                 isFollowing && { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: t.border },
               ]}
-              onPress={() => setIsFollowing(v => !v)}
+              onPress={toggleFollow}
               activeOpacity={0.82}
             >
               {isFollowing && (
